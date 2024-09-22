@@ -66,19 +66,19 @@
          * Init
          * A callback function that is initialized on application start
          */
-        protected static init: Hook[] = [];
+        protected static _init: Hook[] = [];
 
         /**
          * Shutdown
          * A callback function that is initialized on application end
          */
-        protected static shutdown: Hook[] = [];
+        protected static _shutdown: Hook[] = [];
 
         /**
          * Options
          * A callback function for options method requests
          */
-        protected static options: Hook[] = [];
+        protected static _options: Hook[] = [];
 
         /**
          * Route
@@ -168,7 +168,7 @@
         public static init(): Hook {
             const hook = new Hook();
             hook.groups(['*']);
-            this.init.push(hook);
+            this._init.push(hook);
             return hook;
         }
 
@@ -180,7 +180,7 @@
         public static shutdown(): Hook {
             const hook = new Hook();
             hook.groups(['*']);
-            this.shutdown.push(hook);
+            this._shutdown.push(hook);
             return hook;
         }
 
@@ -192,7 +192,7 @@
         public static options(): Hook {
             const hook = new Hook();
             hook.groups(['*']);
-            this.options.push(hook);
+            this._options.push(hook);
             return hook;
         }
 
@@ -335,7 +335,7 @@
          * Get all application routes
          * @returns Route[]
          */
-        public static getRoutes(): Route[] {
+        public static getRoutes():{ [key: string]: Route[] } {
             return Router.getRoutes();
         }
 
@@ -404,7 +404,7 @@
 
             try {
                 if (route.getHook()) {
-                    for (const hook of App.init) { // Global init hooks
+                    for (const hook of App._init) { // Global init hooks
                         if (hook.getGroups().includes('*')) {
                             const args = this.getArguments(hook, pathValues, request.getParams());
                             hook.getAction()(...args);
@@ -413,7 +413,7 @@
                 }
 
                 for (const group of groups) {
-                    for (const hook of App.init) { // Group init hooks
+                    for (const hook of App._init) { // Group init hooks
                         if (hook.getGroups().includes(group)) {
                             const args = this.getArguments(hook, pathValues, request.getParams());
                             hook.getAction()(...args);
@@ -427,7 +427,7 @@
                 }
 
                 for (const group of groups) {
-                    for (const hook of App.shutdown) { // Group shutdown hooks
+                    for (const hook of App._shutdown) { // Group shutdown hooks
                         if (hook.getGroups().includes(group)) {
                             const args = this.getArguments(hook, pathValues, request.getParams());
                             hook.getAction()(...args);
@@ -436,7 +436,7 @@
                 }
 
                 if (route.getHook()) {
-                    for (const hook of App.shutdown) { // Global shutdown hooks
+                    for (const hook of App._shutdown) { // Global shutdown hooks
                         if (hook.getGroups().includes('*')) {
                             const args = this.getArguments(hook, pathValues, request.getParams());
                             hook.getAction()(...args);
@@ -552,14 +552,14 @@
             if (method === App.REQUEST_METHOD_OPTIONS) {
                 try {
                     for (const group of groups) {
-                        for (const optionHook of App.options) { // Group options hooks
+                        for (const optionHook of App._options) { // Group options hooks
                             if (optionHook.getGroups().includes(group)) {
                                 optionHook.getAction()(...this.getArguments(optionHook, {}, request.getParams()));
                             }
                         }
                     }
 
-                    for (const optionHook of App.options) { // Global options hooks
+                    for (const optionHook of App._options) { // Global options hooks
                         if (optionHook.getGroups().includes('*')) {
                             optionHook.getAction()(...this.getArguments(optionHook, {}, request.getParams()));
                         }
@@ -588,14 +588,14 @@
             } else if (method === App.REQUEST_METHOD_OPTIONS) {
                 try {
                     for (const group of groups) {
-                        for (const optionHook of App.options) { // Group options hooks
+                        for (const optionHook of App._options) { // Group options hooks
                             if (optionHook.getGroups().includes(group)) {
                                 optionHook.getAction()(...this.getArguments(optionHook, {}, request.getParams()));
                             }
                         }
                     }
 
-                    for (const optionHook of App.options) { // Global options hooks
+                    for (const optionHook of App._options) { // Global options hooks
                         if (optionHook.getGroups().includes('*')) {
                             optionHook.getAction()(...this.getArguments(optionHook, {}, request.getParams()));
                         }
@@ -656,9 +656,9 @@
             this.resourcesCallbacks = {};
             this.mode = '';
             this.errors = [];
-            this.init = [];
-            this.shutdown = [];
-            this.options = [];
+            this._init = [];
+            this._shutdown = [];
+            this._options = [];
         }
     }
 
