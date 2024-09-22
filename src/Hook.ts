@@ -1,5 +1,5 @@
+import { Validator } from "./Validator";
 
-type Validator = (value: any) => boolean;
 
 export class Hook {
     protected _desc: string = '';
@@ -40,7 +40,7 @@ export class Hook {
         return this.labels[key] !== undefined ? this.labels[key] : defaultValue;
     }
 
-    action(action: () => void): this {
+    action(action: (...args: any[]) => void): this {
         this._action = action;
         return this;
     }

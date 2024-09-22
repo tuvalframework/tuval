@@ -20,7 +20,7 @@
         order: number;
     }
 
-    class App {
+    export class App {
         /**
          * Request method constants
          */

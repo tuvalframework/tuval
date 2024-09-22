@@ -26,6 +26,7 @@
         "node": ">=6.0.0"
     },
     "scripts": {
+        "start": "ts-node ./src/index.ts",
         "patch": "node publish.js",
         "bundle": "dts-bundle-generator --no-check --export-referenced-types=false  -o ./dist/index.d.ts ./dist_types/types/index.d.ts",
         "buildall": "node shell_all.js",
@@ -45,7 +46,6 @@
         "rbuild": "tsc --module commonjs && rollup -c rollup.config.ts && typedoc --out docs --target es6 --theme minimal --mode file src",
         "web": "",
         "_start": "rollup -c rollup.config.ts -w",
-        "start": "webpack-dev-server",
         "test": "jest --coverage",
         "test:watch": "jest --coverage --watch",
         "test:prod": "npm run lint && npm run test -- --no-cache",
@@ -120,6 +120,7 @@
         "dts-bundle": "^0.7.3",
         "dts-bundle-generator": "^5.9.0",
         "dts-bundle-webpack": "^1.0.2",
+        "express": "^4.21.0",
         "file-loader": "^6.2.0",
         "follow-redirects": "^1.15.1",
         "ifdef-loader": "^2.3.0",
@@ -129,6 +130,7 @@
         "to-string-loader": "^1.1.6",
         "ts-jest": "^29.2.5",
         "ts-loader": "^9.2.6",
+        "ts-node": "^10.9.2",
         "typescript": "^4.4.3",
         "url-loader": "^4.1.1",
         "webpack": "^5.56.1",
