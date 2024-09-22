@@ -382,7 +382,7 @@
                 return this.route;
             }
 
-            const url = new URL(request.getURI()).pathname;
+            const url = /* new URL( */request.getURI()/* ).pathname */;
             let method = request.getMethod();
             method = method === App.REQUEST_METHOD_HEAD ? App.REQUEST_METHOD_GET : method;
 

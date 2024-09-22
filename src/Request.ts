@@ -9,7 +9,7 @@
         public static readonly METHOD_TRACE = 'TRACE';
         public static readonly METHOD_CONNECT = 'CONNECT';
 
-        private rawPayload: string = '';
+        protected rawPayload: string = '';
         protected payload: Record<string, any> | null = null;
         protected queryString: Record<string, any> | null = null;
         protected headers: Record<string, any> = {};

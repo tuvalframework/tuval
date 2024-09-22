@@ -1,6 +1,7 @@
 import { Request as ExpressRequest } from 'express';
+import { Request as BaseRequest } from '../Request';
 
-export class Request  {
+export class Request  extends BaseRequest{
     public static readonly METHOD_OPTIONS = 'OPTIONS';
     public static readonly METHOD_GET = 'GET';
     public static readonly METHOD_HEAD = 'HEAD';
@@ -11,12 +12,14 @@ export class Request  {
     public static readonly METHOD_TRACE = 'TRACE';
     public static readonly METHOD_CONNECT = 'CONNECT';
 
-    private rawPayload: string = '';
+    protected rawPayload: string = '';
     protected payload: Record<string, any> | null = null;
     protected queryString: Record<string, any> | null = null;
     protected headers: Record<string, any> = {};
 
-    constructor(private req: ExpressRequest) {}
+    constructor(private req: ExpressRequest) {
+        super();
+    }
 
     public getParam(key: string, defaultValue: any = null): any {
         const params = this.getParams();
