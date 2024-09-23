@@ -96,7 +96,7 @@ const umdConfig = {
             https: false,
             assert: false,
             'follow-redirects': false,
-            "stream": false
+            "stream": false,
         }
     },
     output: {

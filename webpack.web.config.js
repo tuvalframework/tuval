@@ -17,7 +17,7 @@ const webConfig = {
     //target: 'es5',
     mode: 'development',
     devtool: 'source-map',
-    entry: './src/tuval-core.ts',
+    entry: './src/index.ts',
     module: {
         rules: [
             /*  {

@@ -70,6 +70,10 @@ export class Integer extends Validator {
             }
             value = Number(value);
         }
-        return Number.isInteger(value);
+        try {
+            return Number.isInteger(Number.parseInt(value));
+        } catch (e) {
+            return false;
+        }
     }
 }

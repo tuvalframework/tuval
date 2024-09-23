@@ -261,7 +261,7 @@
          * @throws Error
          */
         public getResource(name: string, fresh: boolean = false): any {
-            if (name === 'utopia') {
+            if (name === 'app') {
                 return this;
             }
 
@@ -343,8 +343,8 @@
          * Get the current route
          * @returns Route | null
          */
-        public getRoute(): Route | null {
-            return this.route ?? null;
+        public getRoute(): Route {
+            return this.route ?? null as any;
         }
 
         /**

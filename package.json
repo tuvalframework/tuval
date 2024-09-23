@@ -1,6 +1,6 @@
 {
     "name": "tuval",
-    "version": "0.0.105",
+    "version": "1.0.0",
     "description": "",
     "keywords": [],
     "main": "index.js",
@@ -125,6 +125,7 @@
         "follow-redirects": "^1.15.1",
         "ifdef-loader": "^2.3.0",
         "jest": "^29.7.0",
+        "node-loader": "^2.0.0",
         "rimraf": "^3.0.2",
         "shelljs": "^0.8.4",
         "to-string-loader": "^1.1.6",
@@ -135,9 +136,13 @@
         "url-loader": "^4.1.1",
         "webpack": "^5.56.1",
         "webpack-cli": "^4.8.0",
-        "webpack-conditional-loader": "^1.0.12"
+        "webpack-conditional-loader": "^1.0.12",
+        "webpack-node-externals": "^3.0.0"
     },
     "dependencies": {
+        "diskusage": "^1.2.0",
+        "googleapis": "^144.0.0",
+        "pako": "^2.1.0",
         "validator": "^13.12.0"
     }
 }

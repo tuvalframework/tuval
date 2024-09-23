@@ -1,7 +1,13 @@
 import { Request as ExpressRequest } from 'express';
 import { Request as BaseRequest } from '../Request';
+import { Route } from '../Route';
+import { Filter } from './Filter';
 
-export class Request  extends BaseRequest{
+export class Request extends BaseRequest {
+
+    private filters: Filter[] = [];
+    private static route: Route;
+
     public static readonly METHOD_OPTIONS = 'OPTIONS';
     public static readonly METHOD_GET = 'GET';
     public static readonly METHOD_HEAD = 'HEAD';
@@ -21,13 +27,98 @@ export class Request  extends BaseRequest{
         super();
     }
 
+    /**
+     * Function to add a response filter, the order of filters are first in - first out.
+     *
+     * @param Filter $filter the response filter to set
+     *
+     * @return void
+     */
+    public addFilter(filter: Filter): void {
+        this.filters.push(filter);
+    }
+
+    /**
+   * Return the currently set filter
+   *
+   * @return array<Filter>
+   */
+    public getFilters(): Filter[] {
+        return this.filters;
+    }
+
+    /**
+  * Reset filters
+  *
+  * @return void
+  */
+    public resetFilters(): void {
+        this.filters = [];
+    }
+
+    /**
+  * Check if a filter has been set
+  *
+  * @return bool
+  */
+    public hasFilters(): boolean {
+        return this.filters.length > 0;
+    }
+
+    /**
+     * Function to set a request route
+     *
+     * @param Route|null $route the request route to set
+     *
+     * @return void
+     */
+    public static setRoute(route: Route): void {
+        Request.route = route;
+
+    }
+
+
+    /**
+     * Return the current route
+     *
+     * @return Route|null
+     */
+    public static getRoute(): Route {
+        return Request.route;
+    }
+
+    /**
+   * Check if a route has been set
+   *
+   * @return bool
+   */
+    public static hasRoute(): boolean {
+        return Request.route != null;
+
+    }
+
+
+
     public getParam(key: string, defaultValue: any = null): any {
         const params = this.getParams();
         return params[key] !== undefined ? params[key] : defaultValue;
     }
 
     public getParams(): Record<string, any> {
-        return this.req.params;
+        let parameters = super.getParams();
+
+        if (/* this.hasFilters() && */ Request.hasRoute()) {
+            const route: Route = Request.getRoute();
+            const method: string = route.getLabel('sdk.method', 'unknown');
+            const namespace: string = route.getLabel('sdk.namespace', 'unknown');
+            const endpointIdentifier: string = `${namespace}.${method}`;
+
+            for (const filter of this.getFilters()) {
+                parameters = filter.parse(parameters, endpointIdentifier);
+            }
+        }
+
+        return parameters;
     }
 
     public getQuery(key: string, defaultValue: any = null): any {
@@ -110,11 +201,30 @@ export class Request  extends BaseRequest{
     }
 
     public getHeader(key: string, defaultValue: string = ''): string {
-        return this.req.get(key) ?? defaultValue;
+        const headers = this.getHeaders();
+        return headers[key] ?? defaultValue;
     }
 
     public getHeaders(): Record<string, any> {
-        return this.req.headers;
+
+        const headers =  this.req.headers;
+
+        // Check if cookies exist and are not empty
+        if (this.req.cookies && Object.keys(this.req.cookies).length > 0) {
+            const cookieHeaders: string[] = [];
+
+            // Iterate over each cookie and format as 'key=value'
+            for (const [key, value] of Object.entries(this.req.cookies)) {
+                cookieHeaders.push(`${key}=${value}`);
+            }
+
+            // Add the 'Cookie' header if there are any cookies
+            if (cookieHeaders.length > 0) {
+                headers['Cookie'] = cookieHeaders.join('; ');
+            }
+        }
+
+        return headers;
     }
 
     public addHeader(key: string, value: string): this {

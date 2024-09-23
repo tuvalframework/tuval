@@ -1,5 +1,7 @@
 const path = require('path');
 const DeclarationBundlerPlugin = require('./declaration-bundler-webpack-plugin.fix');
+const NodeLoader = require('node-loader'); // Optional: Not required, but included for clarity
+const nodeExternals = require('webpack-node-externals'); // Add this line
 
 
 
@@ -10,6 +12,25 @@ const opts = {
     version: 3,
     "ifdef-verbose": true, // add this for verbose output
     //"ifdef-triple-slash": false // add this to use double slash comment instead of default triple slash
+};
+
+function DtsBundlePlugin() { }
+DtsBundlePlugin.prototype.apply = function (compiler) {
+    compiler.plugin('done', function () {
+        var dts = require('dts-bundle');
+        if (!dts) {
+            throw 'Dts not found.';
+        }
+        dts.bundle({
+            name: libraryName,
+            main: 'dist_types/types/index.d.ts',
+            out: '../../dist/index.d.ts',
+            verbose: true,
+            removeSource: true,
+            removeSource: false,
+            outputAsModuleFolder: true // to use npm in-package typings
+        });
+    });
 };
 
 var libraryName = '@tuval/core';
@@ -26,6 +47,10 @@ const nodeConfig = {
                 test: /\.js$/,
                 use: ['babel-loader', 'webpack-conditional-loader']
               }, */
+            {
+                test: /\.node$/,
+                use: 'node-loader',
+            },
             {
                 test: /\.(wasm|eot|woff|woff2|svg|ttf)([\?]?.*)$/,
                 type: 'javascript/auto',
@@ -79,6 +104,7 @@ const nodeConfig = {
             'follow-redirects': false
         }
     },
+    externals: [nodeExternals()], // Add this line to exclude node_modules
     output: {
         /* libraryTarget: 'global', */
         filename: 'index.js',
@@ -89,6 +115,21 @@ const nodeConfig = {
         path: path.resolve(__dirname, 'dist'),
     },
     plugins: [
+        {
+            apply: (compiler) => {
+                compiler.hooks.afterEmit.tap('AfterEmitPlugin', (compilation) => {
+                    var dts = require('dts-bundle');
+
+                    dts.bundle({
+                        name: libraryName,
+                        main: 'dist_types/types/index.d.ts',
+                        out: '../../dist/index.d.ts',
+                        removeSource: true,
+                        outputAsModuleFolder: true // to use npm in-package typings
+                    });
+                });
+            }
+        },
         /* new DtsBundleWebpack({
             name:libraryName,
             main: 'dist_types/types/index.d.ts',
@@ -123,4 +164,4 @@ const nodeConfig = {
     ]
 };
 
-module.exports = [nodeConfig /* webClientConfig */ /* umdConfig */ /* , umdWebProcess */ ];
+module.exports = [nodeConfig /* webClientConfig */ /* umdConfig */ /* , umdWebProcess */];
