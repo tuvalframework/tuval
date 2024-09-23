@@ -142,6 +142,7 @@
     "dependencies": {
         "diskusage": "^1.2.0",
         "googleapis": "^144.0.0",
+        "md5": "^2.3.0",
         "pako": "^2.1.0",
         "validator": "^13.12.0"
     }
