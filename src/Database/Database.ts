@@ -134,7 +134,7 @@ export class Database {
     protected map: Record<string, boolean | string> = {};
 
     public static readonly INTERNAL_ATTRIBUTES = [
-       new Document ({
+        new Document({
             '$id': '$id',
             'type': Database.VAR_STRING,
             'size': Database.LENGTH_KEY,
@@ -143,7 +143,7 @@ export class Database {
             'array': false,
             'filters': [],
         }),
-        new Document ({
+        new Document({
             '$id': '$internalId',
             'type': Database.VAR_STRING,
             'size': Database.LENGTH_KEY,
@@ -152,7 +152,7 @@ export class Database {
             'array': false,
             'filters': [],
         }),
-        new Document ({
+        new Document({
             '$id': '$collection',
             'type': Database.VAR_STRING,
             'size': Database.LENGTH_KEY,
@@ -161,7 +161,7 @@ export class Database {
             'array': false,
             'filters': [],
         }),
-        new Document ({
+        new Document({
             '$id': '$tenant',
             'type': Database.VAR_INTEGER,
             'size': 0,
@@ -171,7 +171,7 @@ export class Database {
             'array': false,
             'filters': [],
         }),
-        new Document ({
+        new Document({
             '$id': '$createdAt',
             'type': Database.VAR_DATETIME,
             'format': '',
@@ -182,7 +182,7 @@ export class Database {
             'array': false,
             'filters': ['datetime']
         }),
-        new Document ({
+        new Document({
             '$id': '$updatedAt',
             'type': Database.VAR_DATETIME,
             'format': '',
@@ -193,7 +193,7 @@ export class Database {
             'array': false,
             'filters': ['datetime']
         }),
-        new Document ({
+        new Document({
             '$id': '$permissions',
             'type': Database.VAR_STRING,
             'size': 1000000,
@@ -219,7 +219,7 @@ export class Database {
         '$collection': Database.METADATA,
         'name': 'collections',
         'attributes': [
-          new Document ({
+            new Document({
                 '$id': 'name',
                 'key': 'name',
                 'type': Database.VAR_STRING,
@@ -229,7 +229,7 @@ export class Database {
                 'array': false,
                 'filters': [],
             }),
-            new Document ({
+            new Document({
                 '$id': 'attributes',
                 'key': 'attributes',
                 'type': Database.VAR_STRING,
@@ -239,7 +239,7 @@ export class Database {
                 'array': false,
                 'filters': ['json'],
             }),
-            new Document ({
+            new Document({
                 '$id': 'indexes',
                 'key': 'indexes',
                 'type': Database.VAR_STRING,
@@ -249,7 +249,7 @@ export class Database {
                 'array': false,
                 'filters': ['json'],
             }),
-            new Document ({
+            new Document({
                 '$id': 'documentSecurity',
                 'key': 'documentSecurity',
                 'type': Database.VAR_BOOLEAN,
@@ -647,7 +647,7 @@ export class Database {
             }
         }
 
-        const collection = await this.silent( async () => await this.getCollection(id));
+        const collection = await this.silent(async () => await this.getCollection(id));
 
         if (!collection.isEmpty() && id !== Database.METADATA) {
             throw new DuplicateException(`Collection ${id} already exists`);
@@ -1246,7 +1246,7 @@ export class Database {
         filters: string[],
         newKey: string
     ): Promise<Document> {
-        return await this.updateAttributeMeta(collection, id, (attribute: Document, collectionDoc: Document, attributeIndex: number | string) => {
+        return await this.updateAttributeMeta(collection, id, async (attribute: Document, collectionDoc: Document, attributeIndex: number | string) => {
             const altering = type !== null || size !== null || signed !== null || array !== null || newKey !== null;
             type = type ?? attribute.getAttribute('type');
             size = size ?? attribute.getAttribute('size');
@@ -1290,7 +1290,7 @@ export class Database {
                     throw new DatabaseException(`Unknown attribute type: ${type}. Must be one of ${Database.VAR_STRING}, ${Database.VAR_INTEGER}, ${Database.VAR_FLOAT}, ${Database.VAR_BOOLEAN}, ${Database.VAR_DATETIME}, ${Database.VAR_RELATIONSHIP}`);
             }
 
-            // Ensure required filters for the attribute are passed
+            // Gereken filtrelerin öznitelik için sağlandığından emin olun
             const requiredFilters = this.getRequiredFilters(type);
             if (requiredFilters.some(filter => !filters.includes(filter))) {
                 throw new DatabaseException(`Attribute of type: ${type} requires the following filters: ${requiredFilters.join(",")}`);
@@ -1305,7 +1305,7 @@ export class Database {
                     throw new DatabaseException('Cannot set a default value on a required attribute');
                 }
 
-                this.validateDefaultTypes(type, defaultValue);
+                await this.validateDefaultTypes(type, defaultValue);
             }
 
             attribute
@@ -1321,7 +1321,7 @@ export class Database {
                 .setAttribute('required', required)
                 .setAttribute('default', defaultValue);
 
-            const attributes = collectionDoc.getAttribute('attributes');
+            const attributes: Document[] = collectionDoc.getAttribute('attributes');
             attributes[attributeIndex] = attribute;
             collectionDoc.setAttribute('attributes', attributes, Document.SET_TYPE_ASSIGN);
 
@@ -1333,14 +1333,14 @@ export class Database {
             }
 
             if (altering) {
-                const updated = this.adapter.updateAttribute(collection, id, type, size, signed, array, newKey);
+                const updated = await this.adapter.updateAttribute(collection, id, type, size, signed, array, newKey);
 
                 if (id !== newKey) {
-                    const indexes = collectionDoc.getAttribute('indexes');
+                    const indexes: Document[] = collectionDoc.getAttribute('indexes');
 
                     for (const index of indexes) {
-                        if (index.attributes.includes(id)) {
-                            index.attributes = index.attributes.map((attribute: string) => attribute === id ? newKey : attribute);
+                        if (index.getAttribute('attributes').includes(id)) {
+                            index.setAttribute('attributes', index.getAttribute('attributes').map((attribute: string) => attribute === id ? newKey : attribute));
                         }
                     }
                 }
@@ -1349,17 +1349,17 @@ export class Database {
                     throw new DatabaseException('Failed to update attribute');
                 }
 
-                this.purgeCachedCollection(collection);
+                await this.purgeCachedCollection(collection);
             }
 
-            this.purgeCachedDocument(Database.METADATA, collection);
+            await this.purgeCachedDocument(Database.METADATA, collection);
         });
     }
 
     /**
-     * Checks if attribute can be added to collection.
-     * Used to check attribute limits without asking the database
-     * Returns true if attribute can be added to collection, throws exception otherwise
+     * Özelliğin koleksiyona eklenip eklenemeyeceğini kontrol eder.
+     * Özellik sınırlarını veritabanına sormadan kontrol etmek için kullanılır
+     * Özellik koleksiyona eklenebiliyorsa true döner, aksi takdirde istisna fırlatır
      *
      * @param collection
      * @param attribute
@@ -1394,7 +1394,7 @@ export class Database {
     }
 
     /**
-    * Delete Attribute
+    * Özniteliği siler
     *
     * @param collection
     * @param id
@@ -1409,13 +1409,13 @@ export class Database {
         }
 
         const collectionDoc = await this.silent(async () => await this.getCollection(collection));
-        const attributes = collectionDoc.getAttribute('attributes', []);
-        const indexes = collectionDoc.getAttribute('indexes', []);
+        const attributes: Document[] = collectionDoc.getAttribute('attributes', []);
+        const indexes: Document[] = collectionDoc.getAttribute('indexes', []);
 
         let attribute: Document | null = null;
 
         for (let i = 0; i < attributes.length; i++) {
-            if (attributes[i]['$id'] === id) {
+            if (attributes[i].getAttribute('$id') === id) {
                 attribute = attributes[i];
                 attributes.splice(i, 1);
                 break;
@@ -1426,12 +1426,12 @@ export class Database {
             throw new DatabaseException('Attribute not found');
         }
 
-        if (attribute['type'] === Database.VAR_RELATIONSHIP) {
+        if (attribute.getAttribute('type') === Database.VAR_RELATIONSHIP) {
             throw new DatabaseException('Cannot delete relationship as an attribute');
         }
 
         for (let i = 0; i < indexes.length; i++) {
-            const indexAttributes = indexes[i].getAttribute('attributes', []).filter((attr: string) => attr !== id);
+            const indexAttributes = indexes[i].getAttribute<Document[]>('attributes', []).filter((attr: Document) => attr.getAttribute('$id') !== id);
 
             if (indexAttributes.length === 0) {
                 indexes.splice(i, 1);
@@ -1440,7 +1440,7 @@ export class Database {
             }
         }
 
-        const deleted = this.adapter.deleteAttribute(collectionDoc.getId(), id);
+        const deleted = await this.adapter.deleteAttribute(collectionDoc.getId(), id);
 
         if (!deleted) {
             throw new DatabaseException('Failed to delete attribute');
@@ -1453,8 +1453,8 @@ export class Database {
             this.silent(() => this.updateDocument(Database.METADATA, collectionDoc.getId(), collectionDoc));
         }
 
-        this.purgeCachedCollection(collectionDoc.getId());
-        this.purgeCachedDocument(Database.METADATA, collectionDoc.getId());
+        await this.purgeCachedCollection(collectionDoc.getId());
+        await this.purgeCachedDocument(Database.METADATA, collectionDoc.getId());
 
         this.trigger(Database.EVENT_ATTRIBUTE_DELETE, attribute);
 
@@ -1462,10 +1462,10 @@ export class Database {
     }
 
     /**
-     * Rename Attribute
+     * Özniteliği yeniden adlandırır
      *
      * @param collection
-     * @param oldId Current attribute ID
+     * @param oldId Mevcut öznitelik ID'si
      * @param newId
      * @return boolean
      * @throws AuthorizationException
@@ -1480,16 +1480,16 @@ export class Database {
         }
 
         const collectionDoc = await this.silent(async () => await this.getCollection(collection));
-        const attributes = collectionDoc.getAttribute('attributes', []);
-        const indexes = collectionDoc.getAttribute('indexes', []);
+        const attributes = collectionDoc.getAttribute<Document[]>('attributes', []);
+        const indexes = collectionDoc.getAttribute<Document[]>('indexes', []);
 
-        const attributeExists = attributes.some((attribute: Document) => attribute['$id'] === oldId);
+        const attributeExists = attributes.some((attribute: Document) => attribute.getAttribute('$id') === oldId);
 
         if (!attributeExists) {
             throw new DatabaseException('Attribute not found');
         }
 
-        const newAttributeExists = attributes.some((attribute: Document) => attribute['$id'] === newId);
+        const newAttributeExists = attributes.some((attribute: Document) => attribute.getAttribute('$id') === newId);
 
         if (newAttributeExists) {
             throw new DuplicateException('Attribute name already used');
@@ -1498,7 +1498,7 @@ export class Database {
         let updatedAttribute: Document | null = null;
 
         for (const attribute of attributes) {
-            if (attribute['$id'] === oldId) {
+            if (attribute.getAttribute('$id') === oldId) {
                 attribute.setAttribute('key', newId);
                 attribute.setAttribute('$id', newId);
                 updatedAttribute = attribute;
@@ -1507,7 +1507,7 @@ export class Database {
         }
 
         for (const index of indexes) {
-            const indexAttributes = index.getAttribute('attributes', []).map((attr: string) => (attr === oldId ? newId : attr));
+            const indexAttributes = index.getAttribute<Document[]>('attributes', []).map((attr: Document) => (attr.getAttribute('$id') === oldId ? newId : attr));
             index.setAttribute('attributes', indexAttributes);
         }
 
@@ -1515,10 +1515,10 @@ export class Database {
         collectionDoc.setAttribute('indexes', indexes);
 
         if (collectionDoc.getId() !== Database.METADATA) {
-            this.silent(() => this.updateDocument(Database.METADATA, collectionDoc.getId(), collectionDoc));
+            await this.silent(async () => await this.updateDocument(Database.METADATA, collectionDoc.getId(), collectionDoc));
         }
 
-        const renamed = this.adapter.renameAttribute(collectionDoc.getId(), oldId, newId);
+        const renamed = await this.adapter.renameAttribute(collectionDoc.getId(), oldId, newId);
 
         this.trigger(Database.EVENT_ATTRIBUTE_UPDATE, updatedAttribute);
 
@@ -1526,7 +1526,7 @@ export class Database {
     }
 
     /**
-    * Create a relationship attribute
+    * İlişki özniteliği oluşturur
     *
     * @param collection
     * @param relatedCollection
@@ -1571,7 +1571,7 @@ export class Database {
         id = id ?? relatedCollectionDoc.getId();
         twoWayKey = twoWayKey ?? collectionDoc.getId();
 
-        const attributes = collectionDoc.getAttribute('attributes', []);
+        const attributes = collectionDoc.getAttribute<Document[]>('attributes', []);
         for (const attribute of attributes) {
             if (attribute.getId().toLowerCase() === id.toLowerCase()) {
                 throw new DuplicateException('Attribute already exists');
@@ -1638,7 +1638,7 @@ export class Database {
         relatedCollectionDoc.setAttribute('attributes', twoWayRelationship, Document.SET_TYPE_APPEND);
 
         if (type === Database.RELATION_MANY_TO_MANY) {
-            this.silent(() => this.createCollection(`_${collectionDoc.getInternalId()}_${relatedCollectionDoc.getInternalId()}`, [
+            await this.silent(async () => await this.createCollection(`_${collectionDoc.getInternalId()}_${relatedCollectionDoc.getInternalId()}`, [
                 new Document({
                     '$id': id,
                     'key': id,
@@ -1675,7 +1675,7 @@ export class Database {
             ]));
         }
 
-        const created = this.adapter.createRelationship(
+        const created = await this.adapter.createRelationship(
             collectionDoc.getId(),
             relatedCollectionDoc.getId(),
             type,
@@ -1688,28 +1688,28 @@ export class Database {
             throw new DatabaseException('Failed to create relationship');
         }
 
-        this.silent(() => {
-            this.updateDocument(Database.METADATA, collectionDoc.getId(), collectionDoc);
-            this.updateDocument(Database.METADATA, relatedCollectionDoc.getId(), relatedCollectionDoc);
+        await this.silent(async () => {
+            await this.updateDocument(Database.METADATA, collectionDoc.getId(), collectionDoc);
+            await this.updateDocument(Database.METADATA, relatedCollectionDoc.getId(), relatedCollectionDoc);
 
             const indexKey = `_index_${id}`;
             const twoWayIndexKey = `_index_${twoWayKey}`;
 
             switch (type) {
                 case Database.RELATION_ONE_TO_ONE:
-                    this.createIndex(collectionDoc.getId(), indexKey, Database.INDEX_UNIQUE, [id]);
+                    await this.createIndex(collectionDoc.getId(), indexKey, Database.INDEX_UNIQUE, [id]);
                     if (twoWay) {
-                        this.createIndex(relatedCollectionDoc.getId(), twoWayIndexKey, Database.INDEX_UNIQUE, [twoWayKey]);
+                        await this.createIndex(relatedCollectionDoc.getId(), twoWayIndexKey, Database.INDEX_UNIQUE, [twoWayKey]);
                     }
                     break;
                 case Database.RELATION_ONE_TO_MANY:
-                    this.createIndex(relatedCollectionDoc.getId(), twoWayIndexKey, Database.INDEX_KEY, [twoWayKey]);
+                    await this.createIndex(relatedCollectionDoc.getId(), twoWayIndexKey, Database.INDEX_KEY, [twoWayKey]);
                     break;
                 case Database.RELATION_MANY_TO_ONE:
-                    this.createIndex(collectionDoc.getId(), indexKey, Database.INDEX_KEY, [id]);
+                    await this.createIndex(collectionDoc.getId(), indexKey, Database.INDEX_KEY, [id]);
                     break;
                 case Database.RELATION_MANY_TO_MANY:
-                    // Indexes created on junction collection creation
+                    // Bağlantı koleksiyonu oluşturulurken dizinler oluşturuldu
                     break;
                 default:
                     throw new RelationshipException('Invalid relationship type.');
@@ -1751,20 +1751,20 @@ export class Database {
         }
 
         const collectionDoc = await this.getCollection(collection);
-        const attributes = collectionDoc.getAttribute('attributes', []);
+        const attributes = collectionDoc.getAttribute<Document[]>('attributes', []);
 
         if (newKey !== null && attributes.some((attribute: Document) => attribute['key'] === newKey)) {
             throw new DuplicateException('Attribute already exists');
         }
 
-        this.updateAttributeMeta(collectionDoc.getId(), id, async (attribute: Document) => {
+        await this.updateAttributeMeta(collectionDoc.getId(), id, async (attribute: Document) => {
             const altering = (newKey !== null && newKey !== id) || (newTwoWayKey !== null && newTwoWayKey !== attribute.getAttribute('options')['twoWayKey']);
 
             const relatedCollectionId = attribute.getAttribute('options')['relatedCollection'];
             const relatedCollectionDoc = await this.getCollection(relatedCollectionId);
-            const relatedAttributes = relatedCollectionDoc.getAttribute('attributes', []);
+            const relatedAttributes = relatedCollectionDoc.getAttribute<Document[]>('attributes', []);
 
-            if (newTwoWayKey !== null && relatedAttributes.some((attr: Document) => attr['key'] === newTwoWayKey)) {
+            if (newTwoWayKey !== null && relatedAttributes.some((attr: Document) => attr.getAttribute('key') === newTwoWayKey)) {
                 throw new DuplicateException('Related attribute already exists');
             }
 
@@ -1788,7 +1788,7 @@ export class Database {
                 'side': side,
             });
 
-            this.updateAttributeMeta(relatedCollectionDoc.getId(), twoWayKey, (twoWayAttribute: Document) => {
+            await this.updateAttributeMeta(relatedCollectionDoc.getId(), twoWayKey, async (twoWayAttribute: Document) => {
                 const options = twoWayAttribute.getAttribute('options', {});
                 options['twoWayKey'] = newKey;
                 options['twoWay'] = twoWay;
@@ -1802,20 +1802,20 @@ export class Database {
             if (type === Database.RELATION_MANY_TO_MANY) {
                 const junction = this.getJunctionCollection(collectionDoc, relatedCollectionDoc, side);
 
-                this.updateAttributeMeta(junction, id, (junctionAttribute: Document) => {
+                await this.updateAttributeMeta(junction, id, async (junctionAttribute: Document) => {
                     junctionAttribute.setAttribute('$id', newKey);
                     junctionAttribute.setAttribute('key', newKey);
                 });
-                this.updateAttributeMeta(junction, twoWayKey, (junctionAttribute: Document) => {
+                await this.updateAttributeMeta(junction, twoWayKey, async (junctionAttribute: Document) => {
                     junctionAttribute.setAttribute('$id', newTwoWayKey);
                     junctionAttribute.setAttribute('key', newTwoWayKey);
                 });
 
-                this.purgeCachedCollection(junction);
+                await this.purgeCachedCollection(junction);
             }
 
             if (altering) {
-                const updated = this.adapter.updateRelationship(
+                const updated = await this.adapter.updateRelationship(
                     collectionDoc.getId(),
                     relatedCollectionDoc.getId(),
                     type,
@@ -1832,46 +1832,46 @@ export class Database {
                 }
             }
 
-            this.purgeCachedCollection(collectionDoc.getId());
-            this.purgeCachedCollection(relatedCollectionDoc.getId());
+            await this.purgeCachedCollection(collectionDoc.getId());
+            await this.purgeCachedCollection(relatedCollectionDoc.getId());
 
-            const renameIndex = (collection: string, key: string, newKey: string) => {
-                this.updateIndexMeta(
+            const renameIndex = async (collection: string, key: string, newKey: string) => {
+                await this.updateIndexMeta(
                     collection,
                     `_index_${key}`,
                     (index: Document) => index.setAttribute('attributes', [newKey])
                 );
-                this.silent(() => this.renameIndex(collection, `_index_${key}`, `_index_${newKey}`));
+                await this.silent(async () => await this.renameIndex(collection, `_index_${key}`, `_index_${newKey}`));
             };
 
             switch (type) {
                 case Database.RELATION_ONE_TO_ONE:
                     if (id !== newKey) {
-                        renameIndex(collectionDoc.getId(), id, newKey);
+                        await renameIndex(collectionDoc.getId(), id, newKey);
                     }
                     if (twoWay && twoWayKey !== newTwoWayKey) {
-                        renameIndex(relatedCollectionDoc.getId(), twoWayKey, newTwoWayKey);
+                        await renameIndex(relatedCollectionDoc.getId(), twoWayKey, newTwoWayKey);
                     }
                     break;
                 case Database.RELATION_ONE_TO_MANY:
                     if (side === Database.RELATION_SIDE_PARENT) {
                         if (twoWayKey !== newTwoWayKey) {
-                            renameIndex(relatedCollectionDoc.getId(), twoWayKey, newTwoWayKey);
+                            await renameIndex(relatedCollectionDoc.getId(), twoWayKey, newTwoWayKey);
                         }
                     } else {
                         if (id !== newKey) {
-                            renameIndex(collectionDoc.getId(), id, newKey);
+                            await renameIndex(collectionDoc.getId(), id, newKey);
                         }
                     }
                     break;
                 case Database.RELATION_MANY_TO_ONE:
                     if (side === Database.RELATION_SIDE_PARENT) {
                         if (id !== newKey) {
-                            renameIndex(collectionDoc.getId(), id, newKey);
+                            await renameIndex(collectionDoc.getId(), id, newKey);
                         }
                     } else {
                         if (twoWayKey !== newTwoWayKey) {
-                            renameIndex(relatedCollectionDoc.getId(), twoWayKey, newTwoWayKey);
+                            await renameIndex(relatedCollectionDoc.getId(), twoWayKey, newTwoWayKey);
                         }
                     }
                     break;
@@ -1879,10 +1879,10 @@ export class Database {
                     const junction = this.getJunctionCollection(collectionDoc, relatedCollectionDoc, side);
 
                     if (id !== newKey) {
-                        renameIndex(junction, id, newKey);
+                        await renameIndex(junction, id, newKey);
                     }
                     if (twoWayKey !== newTwoWayKey) {
-                        renameIndex(junction, twoWayKey, newTwoWayKey);
+                        await renameIndex(junction, twoWayKey, newTwoWayKey);
                     }
                     break;
                 default:
@@ -1894,7 +1894,7 @@ export class Database {
     }
 
     /**
-     * Delete a relationship attribute
+     * Bir ilişki özniteliğini sil
      *
      * @param collection
      * @param id
@@ -1911,11 +1911,11 @@ export class Database {
         }
 
         const collectionDoc = await this.silent(async () => await this.getCollection(collection));
-        const attributes = collectionDoc.getAttribute('attributes', []);
+        const attributes = collectionDoc.getAttribute<Document[]>('attributes', []);
         let relationship: Document | null = null;
 
         for (let i = 0; i < attributes.length; i++) {
-            if (attributes[i]['$id'] === id) {
+            if (attributes[i].getAttribute('$id') === id) {
                 relationship = attributes[i];
                 attributes.splice(i, 1);
                 break;
@@ -1935,10 +1935,10 @@ export class Database {
         const side = relationship.getAttribute('options')['side'];
 
         const relatedCollectionDoc = await this.silent(async () => await this.getCollection(relatedCollectionId));
-        const relatedAttributes = relatedCollectionDoc.getAttribute('attributes', []);
+        const relatedAttributes = relatedCollectionDoc.getAttribute<Document[]>('attributes', []);
 
         for (let i = 0; i < relatedAttributes.length; i++) {
-            if (relatedAttributes[i]['$id'] === twoWayKey) {
+            if (relatedAttributes[i].getAttribute('$id') === twoWayKey) {
                 relatedAttributes.splice(i, 1);
                 break;
             }
@@ -1946,9 +1946,9 @@ export class Database {
 
         relatedCollectionDoc.setAttribute('attributes', relatedAttributes);
 
-        this.silent(async () => {
-            this.updateDocument(Database.METADATA, collectionDoc.getId(), collectionDoc);
-            this.updateDocument(Database.METADATA, relatedCollectionDoc.getId(), relatedCollectionDoc);
+        await  this.silent(async () => {
+            await this.updateDocument(Database.METADATA, collectionDoc.getId(), collectionDoc);
+            await this.updateDocument(Database.METADATA, relatedCollectionDoc.getId(), relatedCollectionDoc);
 
             const indexKey = `_index_${id}`;
             const twoWayIndexKey = `_index_${twoWayKey}`;
@@ -1956,30 +1956,30 @@ export class Database {
             switch (type) {
                 case Database.RELATION_ONE_TO_ONE:
                     if (side === Database.RELATION_SIDE_PARENT) {
-                        this.deleteIndex(collectionDoc.getId(), indexKey);
+                        await this.deleteIndex(collectionDoc.getId(), indexKey);
                         if (twoWay) {
-                            this.deleteIndex(relatedCollectionDoc.getId(), twoWayIndexKey);
+                            await this.deleteIndex(relatedCollectionDoc.getId(), twoWayIndexKey);
                         }
                     }
                     if (side === Database.RELATION_SIDE_CHILD) {
-                        this.deleteIndex(relatedCollectionDoc.getId(), twoWayIndexKey);
+                        await this.deleteIndex(relatedCollectionDoc.getId(), twoWayIndexKey);
                         if (twoWay) {
-                            this.deleteIndex(collectionDoc.getId(), indexKey);
+                            await this.deleteIndex(collectionDoc.getId(), indexKey);
                         }
                     }
                     break;
                 case Database.RELATION_ONE_TO_MANY:
                     if (side === Database.RELATION_SIDE_PARENT) {
-                        this.deleteIndex(relatedCollectionDoc.getId(), twoWayIndexKey);
+                        await this.deleteIndex(relatedCollectionDoc.getId(), twoWayIndexKey);
                     } else {
-                        this.deleteIndex(collectionDoc.getId(), indexKey);
+                        await this.deleteIndex(collectionDoc.getId(), indexKey);
                     }
                     break;
                 case Database.RELATION_MANY_TO_ONE:
                     if (side === Database.RELATION_SIDE_PARENT) {
-                        this.deleteIndex(collectionDoc.getId(), indexKey);
+                        await this.deleteIndex(collectionDoc.getId(), indexKey);
                     } else {
-                        this.deleteIndex(relatedCollectionDoc.getId(), twoWayIndexKey);
+                        await this.deleteIndex(relatedCollectionDoc.getId(), twoWayIndexKey);
                     }
                     break;
                 case Database.RELATION_MANY_TO_MANY:
@@ -1989,14 +1989,14 @@ export class Database {
                         side
                     );
 
-                    this.deleteDocument(Database.METADATA, junction);
+                    await this.deleteDocument(Database.METADATA, junction);
                     break;
                 default:
                     throw new RelationshipException('Invalid relationship type.');
             }
         });
 
-        const deleted = this.adapter.deleteRelationship(
+        const deleted = await this.adapter.deleteRelationship(
             collectionDoc.getId(),
             relatedCollectionDoc.getId(),
             type,
@@ -2010,16 +2010,16 @@ export class Database {
             throw new DatabaseException('Failed to delete relationship');
         }
 
-        this.purgeCachedCollection(collectionDoc.getId());
-        this.purgeCachedCollection(relatedCollectionDoc.getId());
+        await this.purgeCachedCollection(collectionDoc.getId());
+        await this.purgeCachedCollection(relatedCollectionDoc.getId());
 
-        this.trigger(Database.EVENT_ATTRIBUTE_DELETE, relationship);
+        await this.trigger(Database.EVENT_ATTRIBUTE_DELETE, relationship);
 
         return true;
     }
 
     /**
-     * Rename Index
+     * İndeksi Yeniden Adlandır
      *
      * @param collection
      * @param oldId
@@ -2038,15 +2038,15 @@ export class Database {
         }
 
         const collectionDoc = await this.silent(async () => await this.getCollection(collection));
-        const indexes = collectionDoc.getAttribute('indexes', []);
+        const indexes = collectionDoc.getAttribute<Document[]>('indexes', []);
 
-        const indexExists = indexes.some((index: Document) => index['$id'] === oldId);
+        const indexExists = indexes.some((index: Document) => index.getAttribute('$id') === oldId);
 
         if (!indexExists) {
             throw new DatabaseException('Index not found');
         }
 
-        const newIndexExists = indexes.some((index: Document) => index['$id'] === newId);
+        const newIndexExists = indexes.some((index: Document) => index.getAttribute('$id') === newId);
 
         if (newIndexExists) {
             throw new DuplicateException('Index name already used');
@@ -2055,7 +2055,7 @@ export class Database {
         let updatedIndex: Document | null = null;
 
         for (const index of indexes) {
-            if (index['$id'] === oldId) {
+            if (index.getAttribute('$id') === oldId) {
                 index.setAttribute('key', newId);
                 index.setAttribute('$id', newId);
                 updatedIndex = index;
@@ -2065,10 +2065,10 @@ export class Database {
 
         collectionDoc.setAttribute('indexes', indexes);
 
-        this.adapter.renameIndex(collectionDoc.getId(), oldId, newId);
+        await this.adapter.renameIndex(collectionDoc.getId(), oldId, newId);
 
         if (collectionDoc.getId() !== Database.METADATA) {
-            this.silent(() => this.updateDocument(Database.METADATA, collectionDoc.getId(), collectionDoc));
+           await this.silent(async () => await this.updateDocument(Database.METADATA, collectionDoc.getId(), collectionDoc));
         }
 
         this.trigger(Database.EVENT_INDEX_RENAME, updatedIndex);
@@ -4415,7 +4415,7 @@ export class Database {
         const collectionKey = `${this.cacheName}-cache-${this.getNamespace()}:${this.adapter.getTenant()}:collection:${collectionId}`;
         const documentKeys = await this.cache.list(collectionKey);
         for (const documentKey of documentKeys) {
-            this.cache.purge(documentKey);
+            await this.cache.purge(documentKey);
         }
 
         return true;
@@ -4430,12 +4430,12 @@ export class Database {
      *
      * @return boolean
      */
-    public purgeCachedDocument(collectionId: string, id: string): boolean {
+    public async purgeCachedDocument(collectionId: string, id: string): Promise<boolean> {
         const collectionKey = `${this.cacheName}-cache-${this.getNamespace()}:${this.adapter.getTenant()}:collection:${collectionId}`;
         const documentKey = `${collectionKey}:${id}`;
 
-        this.cache.purge(collectionKey, documentKey);
-        this.cache.purge(documentKey);
+        await this.cache.purge(collectionKey, documentKey);
+        await this.cache.purge(documentKey);
 
         return true;
     }

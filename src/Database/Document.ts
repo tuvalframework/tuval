@@ -119,7 +119,7 @@ export class Document extends Map<string, any> {
         return attributes;
     }
 
-    public getAttribute(name: string, defaultValue: any = null): any {
+    public getAttribute<T = any>(name: string, defaultValue: any = null): T {
         return this.has(name) ? this.get(name) : defaultValue;
     }
 
