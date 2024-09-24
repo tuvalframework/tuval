@@ -1,5 +1,5 @@
 import { Document } from './Document';
-import {Query as  QueryException } from './Exceptions/Query';
+import { Query as QueryException } from './Exceptions/Query';
 
 
 
@@ -7,20 +7,20 @@ import {Query as  QueryException } from './Exceptions/Query';
 export class Query {
     // Filter methods are already defined in string enum
 
-   public static TYPE_EQUAL: string = 'equal';
-   public static TYPE_NOT_EQUAL: string = 'notEqual';
-   public static TYPE_LESSER: string = 'lessThan';
-   public static TYPE_LESSER_EQUAL: string = 'lessThanEqual';
-   public static TYPE_GREATER: string = 'greaterThan';
-   public static TYPE_GREATER_EQUAL: string = 'greaterThanEqual';
-   public static TYPE_CONTAINS: string = 'contains';
-   public static TYPE_SEARCH: string = 'search';
-   public static TYPE_IS_NULL: string = 'isNull';
-   public static TYPE_IS_NOT_NULL: string = 'isNotNull';
-   public static TYPE_BETWEEN: string = 'between';
-   public static TYPE_STARTS_WITH: string = 'startsWith';
-   public static TYPE_ENDS_WITH: string = 'endsWith';
-   public static TYPE_SELECT: string = 'select';
+    public static TYPE_EQUAL: string = 'equal';
+    public static TYPE_NOT_EQUAL: string = 'notEqual';
+    public static TYPE_LESSER: string = 'lessThan';
+    public static TYPE_LESSER_EQUAL: string = 'lessThanEqual';
+    public static TYPE_GREATER: string = 'greaterThan';
+    public static TYPE_GREATER_EQUAL: string = 'greaterThanEqual';
+    public static TYPE_CONTAINS: string = 'contains';
+    public static TYPE_SEARCH: string = 'search';
+    public static TYPE_IS_NULL: string = 'isNull';
+    public static TYPE_IS_NOT_NULL: string = 'isNotNull';
+    public static TYPE_BETWEEN: string = 'between';
+    public static TYPE_STARTS_WITH: string = 'startsWith';
+    public static TYPE_ENDS_WITH: string = 'endsWith';
+    public static TYPE_SELECT: string = 'select';
 
     // Order methods
     public static TYPE_ORDER_DESC: string = 'orderDesc';
@@ -61,14 +61,14 @@ export class Query {
         Query.TYPE_OR
     ]
 
-    protected static  LOGICAL_TYPES = [
-       Query.TYPE_AND,
-       Query.TYPE_OR
+    protected static LOGICAL_TYPES = [
+        Query.TYPE_AND,
+        Query.TYPE_OR
     ]
 
     protected method: string;
     protected attribute: string;
-    protected onArray: boolean = false;
+    protected _onArray: boolean = false;
 
     protected values: any[];
 
@@ -197,7 +197,7 @@ export class Query {
             throw new QueryException(`Invalid query. Must be an object or array, got ${typeof parsed}`);
         }
 
-        return Array.isArray(parsed) ? Query.parseQuery({ method: string.AND, values: parsed }) : Query.parseQuery(parsed);
+        return Array.isArray(parsed) ? Query.parseQuery({ method: Query.TYPE_AND, values: parsed }) : Query.parseQuery(parsed);
     }
 
     /**
@@ -228,7 +228,7 @@ export class Query {
             const parsedValues = values.map((value: any, index: number) => {
                 try {
                     return Query.parseQuery(value);
-                } catch (e) {
+                } catch (e: any) {
                     throw new QueryException(`Error parsing nested query at index ${index}: ${e.message}`);
                 }
             });
@@ -263,7 +263,10 @@ export class Query {
      * @returns { method: string, attribute?: string, values: any[] }
      */
     toArray(): { method: string; attribute?: string; values: any[] } {
-        const array: { method: string; attribute?: string; values: any[] } = { method: this.method };
+        const array: { method: string; attribute?: string; values: any[] } = { 
+            method: this.method,
+            values: [] // Initialize values property
+        };
 
         if (this.attribute) {
             array.attribute = this.attribute;
@@ -291,7 +294,7 @@ export class Query {
     toString(): string {
         try {
             return JSON.stringify(this.toArray());
-        } catch (e) {
+        } catch (e: any) {
             throw new QueryException('Invalid JSON: ' + e.message);
         }
     }
@@ -314,7 +317,7 @@ export class Query {
      * @returns Query
      */
     static notEqual(attribute: string, value: string | number | boolean): Query {
-        return new Query(Query.NOT_EQUAL, attribute, [value]);
+        return new Query(Query.TYPE_NOT_EQUAL, attribute, [value]);
     }
 
     /**
@@ -324,7 +327,7 @@ export class Query {
      * @returns Query
      */
     static lessThan(attribute: string, value: string | number | boolean): Query {
-        return new Query(Query.LESSER, attribute, [value]);
+        return new Query(Query.TYPE_LESSER, attribute, [value]);
     }
 
     /**
@@ -334,7 +337,7 @@ export class Query {
      * @returns Query
      */
     static lessThanEqual(attribute: string, value: string | number | boolean): Query {
-        return new Query(Query.LESSER_EQUAL, attribute, [value]);
+        return new Query(Query.TYPE_LESSER_EQUAL, attribute, [value]);
     }
 
     /**
@@ -344,7 +347,7 @@ export class Query {
      * @returns Query
      */
     static greaterThan(attribute: string, value: string | number | boolean): Query {
-        return new Query(Query.GREATER, attribute, [value]);
+        return new Query(Query.TYPE_GREATER, attribute, [value]);
     }
 
     /**
@@ -354,7 +357,7 @@ export class Query {
      * @returns Query
      */
     static greaterThanEqual(attribute: string, value: string | number | boolean): Query {
-        return new Query(Query.GREATER_EQUAL, attribute, [value]);
+        return new Query(Query.TYPE_GREATER_EQUAL, attribute, [value]);
     }
 
     /**
@@ -364,7 +367,7 @@ export class Query {
      * @returns Query
      */
     static contains(attribute: string, values: any[]): Query {
-        return new Query(Query.CONTAINS, attribute, values);
+        return new Query(Query.TYPE_CONTAINS, attribute, values);
     }
 
     /**
@@ -375,7 +378,7 @@ export class Query {
      * @returns Query
      */
     static between(attribute: string, start: string | number | boolean, end: string | number | boolean): Query {
-        return new Query(Query.BETWEEN, attribute, [start, end]);
+        return new Query(Query.TYPE_BETWEEN, attribute, [start, end]);
     }
 
     /**
@@ -385,7 +388,7 @@ export class Query {
      * @returns Query
      */
     static search(attribute: string, value: string): Query {
-        return new Query(Query.SEARCH, attribute, [value]);
+        return new Query(Query.TYPE_SEARCH, attribute, [value]);
     }
 
     /**
@@ -394,7 +397,7 @@ export class Query {
      * @returns Query
      */
     static select(attributes: string[]): Query {
-        return new Query(Query.SELECT, '', attributes);
+        return new Query(Query.TYPE_SELECT, '', attributes);
     }
 
     /**
@@ -403,7 +406,7 @@ export class Query {
      * @returns Query
      */
     static orderDesc(attribute: string = ''): Query {
-        return new Query(Query.ORDER_DESC, attribute);
+        return new Query(Query.TYPE_ORDER_DESC, attribute);
     }
 
     /**
@@ -412,7 +415,7 @@ export class Query {
      * @returns Query
      */
     static orderAsc(attribute: string = ''): Query {
-        return new Query(Query.ORDER_ASC, attribute);
+        return new Query(Query.TYPE_ORDER_ASC, attribute);
     }
 
     /**
@@ -421,7 +424,7 @@ export class Query {
      * @returns Query
      */
     static limit(value: number): Query {
-        return new Query(Query.LIMIT, '', [value]);
+        return new Query(Query.TYPE_LIMIT, '', [value]);
     }
 
     /**
@@ -430,7 +433,7 @@ export class Query {
      * @returns Query
      */
     static offset(value: number): Query {
-        return new Query(Query.OFFSET, '', [value]);
+        return new Query(Query.TYPE_OFFSET, '', [value]);
     }
 
     /**
@@ -439,7 +442,7 @@ export class Query {
      * @returns Query
      */
     static cursorAfter(value: Document): Query {
-        return new Query(Query.CURSOR_AFTER, '', [value]);
+        return new Query(Query.TYPE_CURSOR_AFTER, '', [value]);
     }
 
     /**
@@ -448,7 +451,7 @@ export class Query {
      * @returns Query
      */
     static cursorBefore(value: Document): Query {
-        return new Query(Query.CURSOR_BEFORE, '', [value]);
+        return new Query(Query.TYPE_CURSOR_BEFORE, '', [value]);
     }
 
     /**
@@ -457,7 +460,7 @@ export class Query {
      * @returns Query
      */
     static isNull(attribute: string): Query {
-        return new Query(Query.IS_NULL, attribute);
+        return new Query(Query.TYPE_IS_NULL, attribute);
     }
 
     /**
@@ -466,7 +469,7 @@ export class Query {
      * @returns Query
      */
     static isNotNull(attribute: string): Query {
-        return new Query(Query.IS_NOT_NULL, attribute);
+        return new Query(Query.TYPE_IS_NOT_NULL, attribute);
     }
 
     /**
@@ -476,7 +479,7 @@ export class Query {
      * @returns Query
      */
     static startsWith(attribute: string, value: string): Query {
-        return new Query(Query.STARTS_WITH, attribute, [value]);
+        return new Query(Query.TYPE_STARTS_WITH, attribute, [value]);
     }
 
     /**
@@ -486,7 +489,7 @@ export class Query {
      * @returns Query
      */
     static endsWith(attribute: string, value: string): Query {
-        return new Query(Query.ENDS_WITH, attribute, [value]);
+        return new Query(Query.TYPE_ENDS_WITH, attribute, [value]);
     }
 
     /**
@@ -495,7 +498,7 @@ export class Query {
      * @returns Query
      */
     static or(queries: Query[]): Query {
-        return new Query(Query.OR, '', queries);
+        return new Query(Query.TYPE_OR, '', queries);
     }
 
     /**
@@ -504,7 +507,7 @@ export class Query {
      * @returns Query
      */
     static and(queries: Query[]): Query {
-        return new Query(Query.AND, '', queries);
+        return new Query(Query.TYPE_AND, '', queries);
     }
 
     /**
@@ -522,15 +525,15 @@ export class Query {
      * @param queries Query[]
      * @returns GroupByTypeResult
      */
-    static groupByType(queries: Query[]): GroupByTypeResult {
+    static groupByType(queries: Query[]): any {
         const filters: Query[] = [];
         const selections: Query[] = [];
         let limit: number | null = null;
         let offset: number | null = null;
         const orderAttributes: string[] = [];
-        const orderTypes: OrderDirection[] = [];
+        const orderTypes: any[] = [];
         let cursor: string | null = null;
-        let cursorDirection: CursorDirection | null = null;
+        let cursorDirection: any | null = null;
 
         for (const query of queries) {
             const method = query.getMethod();
@@ -538,35 +541,36 @@ export class Query {
             const values = query.getValues();
 
             switch (method) {
-                case string.ORDER_ASC:
-                case string.ORDER_DESC:
+                case Query.TYPE_ORDER_ASC:
+                case Query.TYPE_ORDER_DESC:
                     if (attribute) {
                         orderAttributes.push(attribute);
                     }
-                    orderTypes.push(method === string.ORDER_ASC ? OrderDirection.ASC : OrderDirection.DESC);
+                    orderTypes.push(method === Query.TYPE_ORDER_ASC ? Query.TYPE_ORDER_ASC : Query.TYPE_ORDER_DESC);
                     break;
 
-                case string.LIMIT:
+                case Query.TYPE_LIMIT:
                     if (limit === null && typeof values[0] === 'number') {
                         limit = values[0];
                     }
                     break;
 
-                case string.OFFSET:
+                case Query.TYPE_OFFSET:
                     if (offset === null && typeof values[0] === 'number') {
                         offset = values[0];
                     }
                     break;
 
-                case string.CURSOR_AFTER:
-                case string.CURSOR_BEFORE:
+                case Query.TYPE_CURSOR_AFTER:
+                case Query.TYPE_CURSOR_BEFORE:
                     if (cursor === null && values[0] instanceof Document) {
                         cursor = values[0].getId();
-                        cursorDirection = method === string.CURSOR_AFTER ? CursorDirection.AFTER : CursorDirection.BEFORE;
+                        cursorDirection = method === Query.TYPE_CURSOR_AFTER ? Query.TYPE_CURSOR_AFTER :
+                            Query.TYPE_CURSOR_BEFORE;
                     }
                     break;
 
-                case string.SELECT:
+                case Query.TYPE_SELECT:
                     selections.push(query.clone());
                     break;
 
@@ -593,15 +597,15 @@ export class Query {
      * @returns boolean
      */
     isNested(): boolean {
-        return LOGICAL_TYPES.includes(this.method);
+        return Query.LOGICAL_TYPES.includes(this.method);
     }
 
     /**
      * Get the onArray flag
      * @returns boolean
      */
-    onArrayFlag(): boolean {
-        return this.onArray;
+    onArray(): boolean {
+        return this._onArray;
     }
 
     /**
@@ -609,7 +613,7 @@ export class Query {
      * @param bool boolean
      */
     setOnArray(bool: boolean): void {
-        this.onArray = bool;
+        this._onArray = bool;
     }
 }
 

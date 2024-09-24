@@ -27,6 +27,7 @@ import { ID } from './Helpers/ID';
 import { Structure } from './Validator/Structure';
 import { Authorization } from './Validator/Authorization';
 import { DateTime } from './DateTime';
+import { Cache } from '../Cache/Cache';
 
 
 export class Database {
@@ -362,7 +363,7 @@ export class Database {
         return this;
     }
 
-    public silent<T>(callback: () => T, listeners: string[] | null = null): T {
+    public async silent<T>(callback: () => T, listeners: string[] | null = null): Promise<T> {
         const previous = this.silentListeners;
 
         if (listeners === null) {
@@ -550,15 +551,15 @@ export class Database {
         return this.adapter;
     }
 
-    public startTransaction(): boolean {
+    public startTransaction(): Promise<boolean> {
         return this.adapter.startTransaction();
     }
 
-    public commitTransaction(): boolean {
+    public commitTransaction(): Promise<boolean> {
         return this.adapter.commitTransaction();
     }
 
-    public rollbackTransaction(): boolean {
+    public rollbackTransaction(): Promise<boolean> {
         return this.adapter.rollbackTransaction();
     }
 
@@ -566,11 +567,11 @@ export class Database {
         return this.adapter.withTransaction(callback);
     }
 
-    public ping(): boolean {
+    public ping(): Promise<boolean> {
         return this.adapter.ping();
     }
 
-    public create(database: string | null = null): boolean {
+    public async create(database: string | null = null): Promise<boolean> {
         if (this.adapter.getSharedTables() && !this.adapter.getTenant()) {
             throw new Error('Missing tenant. Tenant must be set when table sharing is enabled.');
         }
@@ -587,7 +588,7 @@ export class Database {
         return true;
     }
 
-    public exists(database: string | null = null, collection: string): boolean {
+    public async exists(database: string | null = null, collection: string): Promise<boolean> {
         if (this.adapter.getSharedTables() && !this.adapter.getTenant()) {
             throw new Error('Missing tenant. Tenant must be set when table sharing is enabled.');
         }
@@ -597,7 +598,7 @@ export class Database {
         return this.adapter.exists(database, collection);
     }
 
-    public list(): Document[] {
+    public async list(): Promise<Document[]> {
         if (this.adapter.getSharedTables() && !this.adapter.getTenant()) {
             throw new Error('Missing tenant. Tenant must be set when table sharing is enabled.');
         }
@@ -609,7 +610,7 @@ export class Database {
         return databases;
     }
 
-    public delete(database: string | null = null): boolean {
+    public async delete(database: string | null = null): Promise<boolean> {
         if (this.adapter.getSharedTables() && !this.adapter.getTenant()) {
             throw new Error('Missing tenant. Tenant must be set when table sharing is enabled.');
         }
@@ -626,13 +627,13 @@ export class Database {
         return deleted;
     }
 
-    public createCollection(
+    public async createCollection(
         id: string,
         attributes: Document[] = [],
         indexes: Document[] = [],
         permissions: string[] | null = null,
         documentSecurity: boolean = true
-    ): Document {
+    ): Promise<Document> {
         if (this.adapter.getSharedTables() && !this.adapter.getTenant()) {
             throw new DatabaseException('Missing tenant. Tenant must be set when table sharing is enabled.');
         }
@@ -646,7 +647,7 @@ export class Database {
             }
         }
 
-        const collection = this.silent(() => this.getCollection(id));
+        const collection = await this.silent(() => this.getCollection(id));
 
         if (!collection.isEmpty() && id !== Database.METADATA) {
             throw new DuplicateException(`Collection ${id} already exists`);
@@ -708,11 +709,11 @@ export class Database {
         return createdCollection;
     }
 
-    public updateCollection(
+    public async updateCollection(
         id: string,
         permissions: string[],
         documentSecurity: boolean
-    ): Document {
+    ): Promise<Document> {
         if (this.adapter.getSharedTables() && !this.adapter.getTenant()) {
             throw new DatabaseException('Missing tenant. Tenant must be set when table sharing is enabled.');
         }
@@ -724,7 +725,7 @@ export class Database {
             }
         }
 
-        const collection = this.silent(() => this.getCollection(id));
+        const collection = await this.silent(async () => await this.getCollection(id));
 
         if (collection.isEmpty()) {
             throw new DatabaseException('Collection not found');
@@ -748,12 +749,12 @@ export class Database {
         return updatedCollection;
     }
 
-    public getCollection(id: string): Document {
+    public async getCollection(id: string): Promise<Document> {
         if (this.adapter.getSharedTables() && !this.adapter.getTenant()) {
             throw new DatabaseException('Missing tenant. Tenant must be set when table sharing is enabled.');
         }
 
-        const collection = this.silent(() => this.getDocument(Database.METADATA, id));
+        const collection = await this.silent(() => this.getDocument(Database.METADATA, id));
 
         if (
             id !== Database.METADATA &&
@@ -768,12 +769,12 @@ export class Database {
         return collection;
     }
 
-    public listCollections(limit: number = 25, offset: number = 0): Document[] {
+    public async listCollections(limit: number = 25, offset: number = 0): Promise<Document[]> {
         if (this.adapter.getSharedTables() && !this.adapter.getTenant()) {
             throw new DatabaseException('Missing tenant. Tenant must be set when table sharing is enabled.');
         }
 
-        const result = this.silent(() => this.find(Database.METADATA, [
+        const result = await this.silent(async () => await this.find(Database.METADATA, [
             Query.limit(limit),
             Query.offset(offset)
         ]));
@@ -790,12 +791,12 @@ export class Database {
         return filteredResult;
     }
 
-    public getSizeOfCollection(collection: string): number {
+    public async getSizeOfCollection(collection: string): Promise<number> {
         if (this.adapter.getSharedTables() && !this.adapter.getTenant()) {
             throw new DatabaseException('Missing tenant. Tenant must be set when table sharing is enabled.');
         }
 
-        const collectionDoc = this.silent(() => this.getCollection(collection));
+        const collectionDoc = await this.silent(() => this.getCollection(collection));
 
         if (collectionDoc.isEmpty()) {
             throw new DatabaseException('Collection not found');
@@ -808,12 +809,12 @@ export class Database {
         return this.adapter.getSizeOfCollection(collectionDoc.getId());
     }
 
-    public deleteCollection(id: string): boolean {
+    public async deleteCollection(id: string): Promise<boolean> {
         if (this.adapter.getSharedTables() && !this.adapter.getTenant()) {
             throw new DatabaseException('Missing tenant. Tenant must be set when table sharing is enabled.');
         }
 
-        const collection = this.silent(() => this.getDocument(Database.METADATA, id));
+        const collection = await this.silent(async () => await this.getDocument(Database.METADATA, id));
 
         if (collection.isEmpty()) {
             throw new DatabaseException('Collection not found');
@@ -831,13 +832,13 @@ export class Database {
             this.deleteRelationship(collection.getId(), relationship.getId());
         }
 
-        this.adapter.deleteCollection(id);
+        await this.adapter.deleteCollection(id);
 
         let deleted: boolean;
         if (id === Database.METADATA) {
             deleted = true;
         } else {
-            deleted = this.silent(() => this.deleteDocument(Database.METADATA, id));
+            deleted = await this.silent(async () => await this.deleteDocument(Database.METADATA, id));
         }
 
         if (deleted) {
@@ -847,7 +848,7 @@ export class Database {
         return deleted;
     }
 
-    public createAttribute(
+    public async createAttribute(
         collection: string,
         id: string,
         type: string,
@@ -859,12 +860,12 @@ export class Database {
         format: string | null = null,
         formatOptions: { [key: string]: any } = {},
         filters: string[] = []
-    ): boolean {
+    ): Promise<boolean> {
         if (this.adapter.getSharedTables() && !this.adapter.getTenant()) {
             throw new DatabaseException('Missing tenant. Tenant must be set when table sharing is enabled.');
         }
 
-        const collectionDoc = this.silent(() => this.getCollection(collection));
+        const collectionDoc = await this.silent(async () => await this.getCollection(collection));
 
         if (collectionDoc.isEmpty()) {
             throw new DatabaseException('Collection not found');
@@ -1046,12 +1047,12 @@ export class Database {
     * @throws ConflictException
     * @throws DatabaseException
     */
-    protected updateIndexMeta(collection: string, id: string, updateCallback: (index: Document, collection: Document, indexPosition: number) => void): Document {
+    protected async updateIndexMeta(collection: string, id: string, updateCallback: (index: Document, collection: Document, indexPosition: number) => void): Promise<Document> {
         if (this.adapter.getSharedTables() && !this.adapter.getTenant()) {
             throw new DatabaseException('Missing tenant. Tenant must be set when table sharing is enabled.');
         }
 
-        const collectionDoc = this.silent(() => this.getCollection(collection));
+        const collectionDoc = await this.silent(async () => await this.getCollection(collection));
 
         if (collectionDoc.getId() === Database.METADATA) {
             throw new DatabaseException('Cannot update metadata indexes');
@@ -1088,16 +1089,16 @@ export class Database {
    * @throws ConflictException
    * @throws DatabaseException
    */
-    protected updateAttributeMeta(
+    protected async updateAttributeMeta(
         collection: string,
         id: string,
         updateCallback: (attribute: Document, collection: Document, index: number | string) => void
-    ): Document {
+    ): Promise<Document> {
         if (this.adapter.getSharedTables() && !this.adapter.getTenant()) {
             throw new DatabaseException('Missing tenant. Tenant must be set when table sharing is enabled.');
         }
 
-        const collectionDoc = this.silent(() => this.getCollection(collection));
+        const collectionDoc = await this.silent(async () => await this.getCollection(collection));
 
         if (collectionDoc.getId() === Database.METADATA) {
             throw new DatabaseException('Cannot update metadata attributes');
@@ -1133,7 +1134,7 @@ export class Database {
      * @return Document
      * @throws DatabaseException
      */
-    public updateAttributeRequired(collection: string, id: string, required: boolean): Document {
+    public async updateAttributeRequired(collection: string, id: string, required: boolean): Promise<Document> {
         return this.updateAttributeMeta(collection, id, (attribute: Document) => {
             attribute.setAttribute('required', required);
         });
@@ -1149,7 +1150,7 @@ export class Database {
     * @return Document
     * @throws DatabaseException
     */
-    public updateAttributeFormat(collection: string, id: string, format: string): Document {
+    public async updateAttributeFormat(collection: string, id: string, format: string): Promise<Document> {
         return this.updateAttributeMeta(collection, id, (attribute: Document) => {
             if (!Structure.hasFormat(format, attribute.getAttribute('type'))) {
                 throw new DatabaseException(`Format "${format}" not available for attribute type "${attribute.getAttribute('type')}"`);
@@ -1169,7 +1170,7 @@ export class Database {
    * @return Document
    * @throws DatabaseException
    */
-    public updateAttributeFormatOptions(collection: string, id: string, formatOptions: { [key: string]: any }): Document {
+    public async updateAttributeFormatOptions(collection: string, id: string, formatOptions: { [key: string]: any }): Promise<Document> {
         return this.updateAttributeMeta(collection, id, (attribute: Document) => {
             attribute.setAttribute('formatOptions', formatOptions);
         });
@@ -1185,7 +1186,7 @@ export class Database {
      * @return Document
      * @throws DatabaseException
      */
-    public updateAttributeFilters(collection: string, id: string, filters: string[]): Document {
+    public async updateAttributeFilters(collection: string, id: string, filters: string[]): Promise<Document> {
         return this.updateAttributeMeta(collection, id, (attribute: Document) => {
             attribute.setAttribute('filters', filters);
         });
@@ -1201,7 +1202,7 @@ export class Database {
     * @return Document
     * @throws DatabaseException
     */
-    public updateAttributeDefault(collection: string, id: string, defaultValue: any = null): Document {
+    public async updateAttributeDefault(collection: string, id: string, defaultValue: any = null): Promise<Document> {
         return this.updateAttributeMeta(collection, id, (attribute: Document) => {
             if (attribute.getAttribute('required') === true) {
                 throw new DatabaseException('Cannot set a default value on a required attribute');
@@ -1231,7 +1232,7 @@ export class Database {
          * @return Document
          * @throws DatabaseException
          */
-    public updateAttribute(
+    public async updateAttribute(
         collection: string,
         id: string,
         type: string | null = null,
@@ -1244,8 +1245,8 @@ export class Database {
         formatOptions: { [key: string]: any } | null = null,
         filters: string[],
         newKey: string
-    ): Document {
-        return this.updateAttributeMeta(collection, id, (attribute: Document, collectionDoc: Document, attributeIndex: number | string) => {
+    ): Promise<Document> {
+        return await this.updateAttributeMeta(collection, id, (attribute: Document, collectionDoc: Document, attributeIndex: number | string) => {
             const altering = type !== null || size !== null || signed !== null || array !== null || newKey !== null;
             type = type ?? attribute.getAttribute('type');
             size = size ?? attribute.getAttribute('size');
@@ -1402,12 +1403,12 @@ export class Database {
     * @throws ConflictException
     * @throws DatabaseException
     */
-    public deleteAttribute(collection: string, id: string): boolean {
+    public async deleteAttribute(collection: string, id: string): Promise<boolean> {
         if (this.adapter.getSharedTables() && !this.adapter.getTenant()) {
             throw new DatabaseException('Missing tenant. Tenant must be set when table sharing is enabled.');
         }
 
-        const collectionDoc = this.silent(() => this.getCollection(collection));
+        const collectionDoc = await this.silent(async () => await this.getCollection(collection));
         const attributes = collectionDoc.getAttribute('attributes', []);
         const indexes = collectionDoc.getAttribute('indexes', []);
 
@@ -1473,12 +1474,12 @@ export class Database {
      * @throws DuplicateException
      * @throws StructureException
      */
-    public renameAttribute(collection: string, oldId: string, newId: string): boolean {
+    public async renameAttribute(collection: string, oldId: string, newId: string): Promise<boolean> {
         if (this.adapter.getSharedTables() && !this.adapter.getTenant()) {
             throw new DatabaseException('Missing tenant. Tenant must be set when table sharing is enabled.');
         }
 
-        const collectionDoc = this.silent(() => this.getCollection(collection));
+        const collectionDoc = await this.silent(async () => await this.getCollection(collection));
         const attributes = collectionDoc.getAttribute('attributes', []);
         const indexes = collectionDoc.getAttribute('indexes', []);
 
@@ -1542,7 +1543,7 @@ export class Database {
     * @throws LimitException
     * @throws StructureException
     */
-    public createRelationship(
+    public async createRelationship(
         collection: string,
         relatedCollection: string,
         type: string,
@@ -1550,18 +1551,18 @@ export class Database {
         id: string | null = null,
         twoWayKey: string | null = null,
         onDelete: string = Database.RELATION_MUTATE_RESTRICT
-    ): boolean {
+    ): Promise<boolean> {
         if (this.adapter.getSharedTables() && !this.adapter.getTenant()) {
             throw new DatabaseException('Missing tenant. Tenant must be set when table sharing is enabled.');
         }
 
-        const collectionDoc = this.silent(() => this.getCollection(collection));
+        const collectionDoc = await this.silent(async () => await this.getCollection(collection));
 
         if (collectionDoc.isEmpty()) {
             throw new DatabaseException('Collection not found');
         }
 
-        const relatedCollectionDoc = this.silent(() => this.getCollection(relatedCollection));
+        const relatedCollectionDoc = await this.silent(async () => await this.getCollection(relatedCollection));
 
         if (relatedCollectionDoc.isEmpty()) {
             throw new DatabaseException('Related collection not found');
@@ -1733,14 +1734,14 @@ export class Database {
      * @throws ConflictException
      * @throws DatabaseException
      */
-    public updateRelationship(
+    public async updateRelationship(
         collection: string,
         id: string,
         newKey: string,
         newTwoWayKey: string,
         twoWay: boolean,
         onDelete: string
-    ): boolean {
+    ): Promise<boolean> {
         if (this.adapter.getSharedTables() && !this.adapter.getTenant()) {
             throw new DatabaseException('Missing tenant. Tenant must be set when table sharing is enabled.');
         }
@@ -1749,18 +1750,18 @@ export class Database {
             return true;
         }
 
-        const collectionDoc = this.getCollection(collection);
+        const collectionDoc = await this.getCollection(collection);
         const attributes = collectionDoc.getAttribute('attributes', []);
 
         if (newKey !== null && attributes.some((attribute: Document) => attribute['key'] === newKey)) {
             throw new DuplicateException('Attribute already exists');
         }
 
-        this.updateAttributeMeta(collectionDoc.getId(), id, (attribute: Document) => {
+        this.updateAttributeMeta(collectionDoc.getId(), id, async (attribute: Document) => {
             const altering = (newKey !== null && newKey !== id) || (newTwoWayKey !== null && newTwoWayKey !== attribute.getAttribute('options')['twoWayKey']);
 
             const relatedCollectionId = attribute.getAttribute('options')['relatedCollection'];
-            const relatedCollectionDoc = this.getCollection(relatedCollectionId);
+            const relatedCollectionDoc = await this.getCollection(relatedCollectionId);
             const relatedAttributes = relatedCollectionDoc.getAttribute('attributes', []);
 
             if (newTwoWayKey !== null && relatedAttributes.some((attr: Document) => attr['key'] === newTwoWayKey)) {
@@ -1904,12 +1905,12 @@ export class Database {
      * @throws DatabaseException
      * @throws StructureException
      */
-    public deleteRelationship(collection: string, id: string): boolean {
+    public async deleteRelationship(collection: string, id: string): Promise<boolean> {
         if (this.adapter.getSharedTables() && !this.adapter.getTenant()) {
             throw new DatabaseException('Missing tenant. Tenant must be set when table sharing is enabled.');
         }
 
-        const collectionDoc = this.silent(() => this.getCollection(collection));
+        const collectionDoc = await this.silent(async () => await this.getCollection(collection));
         const attributes = collectionDoc.getAttribute('attributes', []);
         let relationship: Document | null = null;
 
@@ -1933,7 +1934,7 @@ export class Database {
         const twoWayKey = relationship.getAttribute('options')['twoWayKey'];
         const side = relationship.getAttribute('options')['side'];
 
-        const relatedCollectionDoc = this.silent(() => this.getCollection(relatedCollectionId));
+        const relatedCollectionDoc = await this.silent(async () => await this.getCollection(relatedCollectionId));
         const relatedAttributes = relatedCollectionDoc.getAttribute('attributes', []);
 
         for (let i = 0; i < relatedAttributes.length; i++) {
@@ -1945,7 +1946,7 @@ export class Database {
 
         relatedCollectionDoc.setAttribute('attributes', relatedAttributes);
 
-        this.silent(() => {
+        this.silent(async () => {
             this.updateDocument(Database.METADATA, collectionDoc.getId(), collectionDoc);
             this.updateDocument(Database.METADATA, relatedCollectionDoc.getId(), relatedCollectionDoc);
 
@@ -2031,12 +2032,12 @@ export class Database {
      * @throws DuplicateException
      * @throws StructureException
      */
-    public renameIndex(collection: string, oldId: string, newId: string): boolean {
+    public async renameIndex(collection: string, oldId: string, newId: string): Promise<boolean> {
         if (this.adapter.getSharedTables() && !this.adapter.getTenant()) {
             throw new DatabaseException('Missing tenant. Tenant must be set when table sharing is enabled.');
         }
 
-        const collectionDoc = this.silent(() => this.getCollection(collection));
+        const collectionDoc = await this.silent(async () => await this.getCollection(collection));
         const indexes = collectionDoc.getAttribute('indexes', []);
 
         const indexExists = indexes.some((index: Document) => index['$id'] === oldId);
@@ -2094,14 +2095,14 @@ export class Database {
      * @throws StructureException
      * @throws Exception
      */
-    public createIndex(
+    public async createIndex(
         collection: string,
         id: string,
         type: string,
         attributes: string[],
         lengths: number[] = [],
         orders: string[] = []
-    ): boolean {
+    ): Promise<boolean> {
         if (this.adapter.getSharedTables() && !this.adapter.getTenant()) {
             throw new DatabaseException('Missing tenant. Tenant must be set when table sharing is enabled.');
         }
@@ -2110,7 +2111,7 @@ export class Database {
             throw new DatabaseException('Missing attributes');
         }
 
-        const collectionDoc = this.silent(() => this.getCollection(collection));
+        const collectionDoc = await this.silent(async () => await this.getCollection(collection));
 
         // index IDs are case-insensitive
         const indexes = collectionDoc.getAttribute('indexes', []);
@@ -2219,12 +2220,12 @@ export class Database {
      * @throws DatabaseException
      * @throws StructureException
      */
-    public deleteIndex(collection: string, id: string): boolean {
+    public async deleteIndex(collection: string, id: string): Promise<boolean> {
         if (this.adapter.getSharedTables() && !this.adapter.getTenant()) {
             throw new DatabaseException('Missing tenant. Tenant must be set when table sharing is enabled.');
         }
 
-        const collectionDoc = this.silent(() => this.getCollection(collection));
+        const collectionDoc = await this.silent(async () => await this.getCollection(collection));
         const indexes = collectionDoc.getAttribute('indexes', []);
 
         let indexDeleted: Document | null = null;
@@ -2239,7 +2240,7 @@ export class Database {
         collectionDoc.setAttribute('indexes', indexes);
 
         if (collectionDoc.getId() !== Database.METADATA) {
-            this.silent(() => this.updateDocument(Database.METADATA, collectionDoc.getId(), collectionDoc));
+            this.silent(async () => await this.updateDocument(Database.METADATA, collectionDoc.getId(), collectionDoc));
         }
 
         const deleted = this.adapter.deleteIndex(collectionDoc.getId(), id);
@@ -2261,7 +2262,7 @@ export class Database {
      * @throws DatabaseException
      * @throws Exception
      */
-    public getDocument(collection: string, id: string, queries: Query[] = [], forUpdate: boolean = false): Document {
+    public async getDocument(collection: string, id: string, queries: Query[] = [], forUpdate: boolean = false): Promise<Document> {
         if (this.adapter.getSharedTables() && !this.adapter.getTenant()) {
             throw new DatabaseException('Missing tenant. Tenant must be set when table sharing is enabled.');
         }
@@ -2278,7 +2279,7 @@ export class Database {
             return new Document();
         }
 
-        const collectionDoc = this.silent(() => this.getCollection(collection));
+        const collectionDoc = await this.silent(async () => await this.getCollection(collection));
 
         if (collectionDoc.isEmpty()) {
             throw new DatabaseException('Collection not found');
@@ -2363,7 +2364,7 @@ export class Database {
             return document;
         }
 
-        const document = this.adapter.getDocument(collectionDoc.getId(), id, queries, forUpdate);
+        const document = await this.adapter.getDocument(collectionDoc.getId(), id, queries, forUpdate);
 
         if (document.isEmpty()) {
             return document;
@@ -2385,7 +2386,7 @@ export class Database {
         this.map = {};
 
         if (this.resolveRelationships && (selects.length === 0 || nestedSelections.length > 0)) {
-            castedDocument = this.silent(() => this.populateDocumentRelationships(collectionDoc, castedDocument, nestedSelections));
+            castedDocument = await this.silent(() => this.populateDocumentRelationships(collectionDoc, castedDocument, nestedSelections));
         }
 
         const hasTwoWayRelationship = relationships.some(
@@ -2395,7 +2396,7 @@ export class Database {
         for (const [key, value] of Object.entries(this.map)) {
             const [k, v] = key.split('=>');
             const ck = `${this.cacheName}-cache-${this.getNamespace()}:${this.adapter.getTenant()}:map:${k}`;
-            let cache = this.cache.load(ck, Database.TTL, ck) || [];
+            let cache = await this.cache.load(ck, Database.TTL, ck) || [];
             if (!cache.includes(v)) {
                 cache.push(v);
                 this.cache.save(ck, cache, ck);
@@ -2432,7 +2433,7 @@ export class Database {
      * @return Document
      * @throws DatabaseException
      */
-    private populateDocumentRelationships(collection: Document, document: Document, queries: Query[] = []): Document {
+    private async populateDocumentRelationships(collection: Document, document: Document, queries: Query[] = []): Promise<Document> {
         const attributes = collection.getAttribute('attributes', []);
 
         const relationships = attributes.filter((attribute: any) => attribute['type'] === Database.VAR_RELATIONSHIP);
@@ -2440,7 +2441,7 @@ export class Database {
         for (const relationship of relationships) {
             const key = relationship['key'];
             const value = document.getAttribute(key);
-            const relatedCollection = this.getCollection(relationship['options']['relatedCollection']);
+            const relatedCollection = await this.getCollection(relationship['options']['relatedCollection']);
             const relationType = relationship['options']['relationType'];
             const twoWay = relationship['options']['twoWay'];
             const twoWayKey = relationship['options']['twoWayKey'];
@@ -2541,7 +2542,7 @@ export class Database {
                     this.relationshipFetchDepth++;
                     this.relationshipFetchStack.push(relationship);
 
-                    let relatedDocuments = this.find(relatedCollection.getId(), [
+                    let relatedDocuments = await this.find(relatedCollection.getId(), [
                         Query.equal(twoWayKey, [document.getId()]),
                         Query.limit(Number.MAX_SAFE_INTEGER),
                         ...queries
@@ -2590,7 +2591,7 @@ export class Database {
                     this.relationshipFetchDepth++;
                     this.relationshipFetchStack.push(relationship);
 
-                    relatedDocuments = this.find(relatedCollection.getId(), [
+                    relatedDocuments = await this.find(relatedCollection.getId(), [
                         Query.equal(twoWayKey, [document.getId()]),
                         Query.limit(Number.MAX_SAFE_INTEGER),
                         ...queries
@@ -2619,7 +2620,7 @@ export class Database {
 
                     const junction = this.getJunctionCollection(collection, relatedCollection, side);
 
-                    const junctions = this.skipRelationships(() => this.find(junction, [
+                    const junctions = await this.skipRelationships(() => this.find(junction, [
                         Query.equal(twoWayKey, [document.getId()]),
                         Query.limit(Number.MAX_SAFE_INTEGER)
                     ]));
@@ -2656,12 +2657,12 @@ export class Database {
          * @throws DatabaseException
          * @throws StructureException
          */
-    public createDocument(collection: string, document: Document): Document {
+    public async createDocument(collection: string, document: Document): Promise<Document> {
         if (this.adapter.getSharedTables() && !this.adapter.getTenant()) {
             throw new DatabaseException('Missing tenant. Tenant must be set when table sharing is enabled.');
         }
 
-        const collectionDoc = this.silent(() => this.getCollection(collection));
+        const collectionDoc = await this.silent(async () => await this.getCollection(collection));
 
         if (collectionDoc.getId() !== Database.METADATA) {
             const authorization = new Authorization(Database.PERMISSION_CREATE);
@@ -2699,16 +2700,16 @@ export class Database {
             throw new StructureException(structure.getDescription());
         }
 
-        document = this.withTransaction(() => {
+        document = await this.withTransaction(async () => {
             if (this.resolveRelationships) {
-                document = this.silent(() => this.createDocumentRelationships(collectionDoc, document));
+                document = await this.silent(async () => await this.createDocumentRelationships(collectionDoc, document));
             }
 
             return this.adapter.createDocument(collectionDoc.getId(), document);
         });
 
         if (this.resolveRelationships) {
-            document = this.silent(() => this.populateDocumentRelationships(collectionDoc, document));
+            document = await this.silent(async () => await this.populateDocumentRelationships(collectionDoc, document));
         }
 
         document = this.decode(collectionDoc, document);
@@ -2730,7 +2731,7 @@ export class Database {
      * @throws StructureException
      * @throws Exception
      */
-    public createDocuments(collection: string, documents: Document[], batchSize: number = Database.INSERT_BATCH_SIZE): Document[] {
+    public async createDocuments(collection: string, documents: Document[], batchSize: number = Database.INSERT_BATCH_SIZE): Promise<Document[]> {
         if (this.adapter.getSharedTables() && !this.adapter.getTenant()) {
             throw new DatabaseException('Missing tenant. Tenant must be set when table sharing is enabled.');
         }
@@ -2739,7 +2740,7 @@ export class Database {
             return [];
         }
 
-        const collectionDoc = this.silent(() => this.getCollection(collection));
+        const collectionDoc = await this.silent(async () => await this.getCollection(collection));
 
         const time = DateTime.now();
 
@@ -2762,17 +2763,17 @@ export class Database {
             }
 
             if (this.resolveRelationships) {
-                documents[i] = this.silent(() => this.createDocumentRelationships(collectionDoc, documents[i]));
+                documents[i] = await this.silent(async () => await this.createDocumentRelationships(collectionDoc, documents[i]));
             }
         }
 
-        documents = this.withTransaction(() => {
+        documents = await this.withTransaction(async () => {
             return this.adapter.createDocuments(collectionDoc.getId(), documents, batchSize);
         });
 
         for (let i = 0; i < documents.length; i++) {
             if (this.resolveRelationships) {
-                documents[i] = this.silent(() => this.populateDocumentRelationships(collectionDoc, documents[i]));
+                documents[i] = await this.silent(async () => await this.populateDocumentRelationships(collectionDoc, documents[i]));
             }
 
             documents[i] = this.decode(collectionDoc, documents[i]);
@@ -2791,7 +2792,7 @@ export class Database {
      * @return Document
      * @throws DatabaseException
      */
-    private createDocumentRelationships(collection: Document, document: Document): Document {
+    private async createDocumentRelationships(collection: Document, document: Document): Promise<Document> {
         const attributes = collection.getAttribute('attributes', []);
 
         const relationships = attributes.filter(
@@ -2803,7 +2804,7 @@ export class Database {
         for (const relationship of relationships) {
             const key = relationship['key'];
             const value = document.getAttribute(key);
-            const relatedCollection = this.getCollection(relationship['options']['relatedCollection']);
+            const relatedCollection = await this.getCollection(relationship['options']['relatedCollection']);
             const relationType = relationship['options']['relationType'];
             const twoWay = relationship['options']['twoWay'];
             const twoWayKey = relationship['options']['twoWayKey'];
@@ -2957,7 +2958,7 @@ export class Database {
      * @throws StructureException
      * @throws Exception
      */
-    private relateDocuments(
+    private async relateDocuments(
         collection: Document,
         relatedCollection: Document,
         key: string,
@@ -2967,7 +2968,7 @@ export class Database {
         twoWay: boolean,
         twoWayKey: string,
         side: string,
-    ): string {
+    ): Promise<string> {
         switch (relationType) {
             case Database.RELATION_ONE_TO_ONE:
                 if (twoWay) {
@@ -2987,7 +2988,7 @@ export class Database {
         }
 
         // Try to get the related document
-        let related = this.getDocument(relatedCollection.getId(), relation.getId());
+        let related = await this.getDocument(relatedCollection.getId(), relation.getId());
 
         if (related.isEmpty()) {
             // If the related document doesn't exist, create it, inheriting permissions if none are set
@@ -2995,14 +2996,14 @@ export class Database {
                 relation.setAttribute('$permissions', document.getPermissions());
             }
 
-            related = this.createDocument(relatedCollection.getId(), relation);
+            related = await this.createDocument(relatedCollection.getId(), relation);
         } else if (related.getAttributes() !== relation.getAttributes()) {
             // If the related document exists and the data is not the same, update it
             for (const [attribute, value] of Object.entries(relation.getAttributes())) {
                 related.setAttribute(attribute, value);
             }
 
-            related = this.updateDocument(relatedCollection.getId(), related.getId(), related);
+            related = await this.updateDocument(relatedCollection.getId(), related.getId(), related);
         }
 
         if (relationType === Database.RELATION_MANY_TO_MANY) {
@@ -3039,7 +3040,7 @@ export class Database {
          * @throws StructureException
          * @throws Exception
          */
-    private relateDocumentsById(
+    private async relateDocumentsById(
         collection: Document,
         relatedCollection: Document,
         key: string,
@@ -3049,9 +3050,9 @@ export class Database {
         twoWay: boolean,
         twoWayKey: string,
         side: string,
-    ): void {
+    ): Promise<void> {
         // Get the related document, will be empty on permissions failure
-        const related = this.skipRelationships(() => this.getDocument(relatedCollection.getId(), relationId));
+        const related = await this.skipRelationships(async () => await this.getDocument(relatedCollection.getId(), relationId));
 
         if (related.isEmpty()) {
             return;
@@ -3107,7 +3108,7 @@ export class Database {
      * @throws DatabaseException
      * @throws StructureException
      */
-    public updateDocument(collection: string, id: string, document: Document): Document {
+    public async updateDocument(collection: string, id: string, document: Document): Promise<Document> {
         if (this.adapter.getSharedTables() && !this.adapter.getTenant()) {
             throw new DatabaseException('Missing tenant. Tenant must be set when table sharing is enabled.');
         }
@@ -3116,11 +3117,11 @@ export class Database {
             throw new DatabaseException('Must define $id attribute');
         }
 
-        const collectionDoc = this.silent(() => this.getCollection(collection));
+        const collectionDoc = await this.silent(async () => await this.getCollection(collection));
 
-        document = this.withTransaction(() => {
+        document = await this.withTransaction(async () => {
             const time = DateTime.now();
-            const old = Authorization.skip(() => this.silent(
+            const old = await Authorization.skip(() => this.silent(
                 () => this.getDocument(collectionDoc.getId(), id, [], true)
             ));
 
@@ -3276,7 +3277,7 @@ export class Database {
             }
 
             if (this.resolveRelationships) {
-                document = this.silent(() => this.updateDocumentRelationships(collectionDoc, old, document));
+                document = await this.silent(async () => await this.updateDocumentRelationships(collectionDoc, old, document));
             }
 
             this.adapter.updateDocument(collectionDoc.getId(), document);
@@ -3285,7 +3286,7 @@ export class Database {
         })
 
         if (this.resolveRelationships) {
-            document = this.silent(() => this.populateDocumentRelationships(collectionDoc, document));
+            document = await this.silent(async () => await this.populateDocumentRelationships(collectionDoc, document));
         }
 
         document = this.decode(collectionDoc, document);
@@ -3310,7 +3311,7 @@ export class Database {
      * @throws Exception
      * @throws StructureException
      */
-    public updateDocuments(collection: string, documents: Document[], batchSize: number = Database.INSERT_BATCH_SIZE): Document[] {
+    public async updateDocuments(collection: string, documents: Document[], batchSize: number = Database.INSERT_BATCH_SIZE): Promise<Document[]> {
         if (this.adapter.getSharedTables() && !this.adapter.getTenant()) {
             throw new DatabaseException('Missing tenant. Tenant must be set when table sharing is enabled.');
         }
@@ -3319,9 +3320,9 @@ export class Database {
             return [];
         }
 
-        const collectionDoc = this.silent(() => this.getCollection(collection));
+        const collectionDoc = await this.silent(async () => await this.getCollection(collection));
 
-        documents = this.withTransaction(() => {
+        documents = await this.withTransaction(async () => {
             const time = DateTime.now();
 
             for (let i = 0; i < documents.length; i++) {
@@ -3334,7 +3335,7 @@ export class Database {
                 document.setAttribute('$updatedAt', !updatedAt || !this.preserveDates ? time : updatedAt);
                 documents[i] = this.encode(collectionDoc, document);
 
-                const old = Authorization.skip(() => this.silent(
+                const old = await Authorization.skip(async () => await this.silent(
                     () => this.getDocument(
                         collectionDoc.getId(),
                         document.getId(),
@@ -3357,7 +3358,7 @@ export class Database {
                 }
 
                 if (this.resolveRelationships) {
-                    documents[i] = this.silent(() => this.updateDocumentRelationships(collectionDoc, old, documents[i]));
+                    documents[i] = await this.silent(async () => await this.updateDocumentRelationships(collectionDoc, old, documents[i]));
                 }
             }
 
@@ -3367,7 +3368,7 @@ export class Database {
         for (let i = 0; i < documents.length; i++) {
             let document = documents[i];
             if (this.resolveRelationships) {
-                document = this.silent(() => this.populateDocumentRelationships(collectionDoc, document));
+                document = await this.silent(async () => await this.populateDocumentRelationships(collectionDoc, document));
             }
 
             documents[i] = this.decode(collectionDoc, document);
@@ -3395,7 +3396,7 @@ export class Database {
          * @throws DuplicateException
          * @throws StructureException
          */
-    private updateDocumentRelationships(collection: Document, old: Document, document: Document): Document {
+    private async updateDocumentRelationships(collection: Document, old: Document, document: Document): Promise<Document> {
         const attributes = collection.getAttribute('attributes', []);
 
         const relationships = attributes.filter(
@@ -3408,7 +3409,7 @@ export class Database {
             const key = relationship['key'];
             const value: any = document.getAttribute(key);
             const oldValue = old.getAttribute(key);
-            const relatedCollection = this.getCollection(relationship['options']['relatedCollection']);
+            const relatedCollection = await this.getCollection(relationship['options']['relatedCollection']);
             const relationType = relationship['options']['relationType'];
             const twoWay = relationship['options']['twoWay'];
             const twoWayKey = relationship['options']['twoWayKey'];
@@ -3443,7 +3444,8 @@ export class Database {
                             }
 
                             if (typeof value === 'string') {
-                                const related = this.skipRelationships(() => this.getDocument(relatedCollection.getId(), value, [Query.select(['$id'])]));
+                                const related =
+                                    await this.skipRelationships(async () => await this.getDocument(relatedCollection.getId(), value, [Query.select(['$id'])]));
                                 if (related.isEmpty()) {
                                     document.setAttribute(key, null);
                                 }
@@ -3469,9 +3471,7 @@ export class Database {
 
                         switch (typeof value) {
                             case 'string':
-                                const related = this.skipRelationships(
-                                    () => this.getDocument(relatedCollection.getId(), value, [Query.select(['$id'])])
-                                );
+                                const related = await this.skipRelationships(async () => await this.getDocument(relatedCollection.getId(), value, [Query.select(['$id'])]));
 
                                 if (related.isEmpty()) {
                                     document.setAttribute(key, null);
@@ -3495,7 +3495,7 @@ export class Database {
                                 break;
                             case 'object':
                                 if (value instanceof Document) {
-                                    let related = this.skipRelationships(() => this.getDocument(relatedCollection.getId(), value.getId()));
+                                    let related = await this.skipRelationships(async () => await this.getDocument(relatedCollection.getId(), value.getId()));
 
                                     if (
                                         oldValue?.getId() !== value.getId()
@@ -3512,12 +3512,12 @@ export class Database {
                                         if (!value.getAttribute('$permissions')) {
                                             value.setAttribute('$permissions', document.getAttribute('$permissions'));
                                         }
-                                        related = this.createDocument(
+                                        related = await this.createDocument(
                                             relatedCollection.getId(),
                                             value.setAttribute(twoWayKey, document.getId())
                                         );
                                     } else {
-                                        related = this.updateDocument(
+                                        related = await this.updateDocument(
                                             relatedCollection.getId(),
                                             related.getId(),
                                             value.setAttribute(twoWayKey, document.getId())
@@ -3530,9 +3530,7 @@ export class Database {
                                 }
                             case 'undefined':
                                 if (oldValue?.getId()) {
-                                    const oldRelated = this.skipRelationships(
-                                        () => this.getDocument(relatedCollection.getId(), oldValue.getId())
-                                    );
+                                    const oldRelated = await this.skipRelationships(async () => await this.getDocument(relatedCollection.getId(), oldValue.getId()));
                                     this.skipRelationships(() => this.updateDocument(
                                         relatedCollection.getId(),
                                         oldRelated.getId(),
@@ -3578,8 +3576,8 @@ export class Database {
 
                             for (const relation of value) {
                                 if (typeof relation === 'string') {
-                                    const related = this.skipRelationships(
-                                        () => this.getDocument(relatedCollection.getId(), relation, [Query.select(['$id'])])
+                                    const related =  await this.skipRelationships(
+                                        async () => await this.getDocument(relatedCollection.getId(), relation, [Query.select(['$id'])])
                                     );
 
                                     if (related.isEmpty()) {
@@ -3592,8 +3590,8 @@ export class Database {
                                         related.setAttribute(twoWayKey, document.getId())
                                     ));
                                 } else if (relation instanceof Document) {
-                                    const related = this.skipRelationships(
-                                        () => this.getDocument(relatedCollection.getId(), relation.getId(), [Query.select(['$id'])])
+                                    const related = await this.skipRelationships(
+                                        async () => await this.getDocument(relatedCollection.getId(), relation.getId(), [Query.select(['$id'])])
                                     );
 
                                     if (related.isEmpty()) {
@@ -3621,8 +3619,8 @@ export class Database {
                         }
 
                         if (typeof value === 'string') {
-                            const related = this.skipRelationships(
-                                () => this.getDocument(relatedCollection.getId(), value, [Query.select(['$id'])])
+                            const related = await this.skipRelationships(
+                                async () => await this.getDocument(relatedCollection.getId(), value, [Query.select(['$id'])])
                             );
 
                             if (related.isEmpty()) {
@@ -3630,8 +3628,8 @@ export class Database {
                             }
                             this.purgeCachedDocument(relatedCollection.getId(), value);
                         } else if (value instanceof Document) {
-                            const related = this.skipRelationships(
-                                () => this.getDocument(relatedCollection.getId(), value.getId(), [Query.select(['$id'])])
+                            const related = await this.skipRelationships(
+                                async () => await this.getDocument(relatedCollection.getId(), value.getId(), [Query.select(['$id'])])
                             );
 
                             if (related.isEmpty()) {
@@ -3688,7 +3686,7 @@ export class Database {
                         for (const relation of removedDocuments) {
                             const junction = this.getJunctionCollection(collection, relatedCollection, side);
 
-                            const junctions = this.find(junction, [
+                            const junctions = await this.find(junction, [
                                 Query.equal(key, [relation]),
                                 Query.equal(twoWayKey, [document.getId()]),
                                 Query.limit(Number.MAX_SAFE_INTEGER)
@@ -3701,22 +3699,22 @@ export class Database {
 
                         for (let relation of value) {
                             if (typeof relation === 'string') {
-                                if (oldIds.includes(relation) || this.getDocument(relatedCollection.getId(), relation, [Query.select(['$id'])]).isEmpty()) {
+                                if (oldIds.includes(relation) || (await this.getDocument(relatedCollection.getId(), relation, [Query.select(['$id'])])).isEmpty()) {
                                     continue;
                                 }
                             } else if (relation instanceof Document) {
-                                let related = this.getDocument(relatedCollection.getId(), relation.getId(), [Query.select(['$id'])]);
+                                let related = await this.getDocument(relatedCollection.getId(), relation.getId(), [Query.select(['$id'])]);
 
                                 if (related.isEmpty()) {
                                     if (!(value as any).getAttribute('$permissions')) {
                                         relation.setAttribute('$permissions', document.getAttribute('$permissions'));
                                     }
-                                    related = this.createDocument(
+                                    related = await this.createDocument(
                                         relatedCollection.getId(),
                                         relation
                                     );
                                 } else if (related.getAttributes() !== relation.getAttributes()) {
-                                    related = this.updateDocument(
+                                    related = await this.updateDocument(
                                         relatedCollection.getId(),
                                         related.getId(),
                                         relation
@@ -3732,7 +3730,7 @@ export class Database {
                                 throw new RelationshipException('Invalid relationship value. Must be either a document or document ID.');
                             }
 
-                            this.skipRelationships(() => this.createDocument(
+                            await this.skipRelationships(() => this.createDocument(
                                 this.getJunctionCollection(collection, relatedCollection, side),
                                 new Document({
                                     [key]: relation,
@@ -3777,7 +3775,7 @@ export class Database {
      * @throws DatabaseException
      * @throws Exception
      */
-    public increaseDocumentAttribute(collection: string, id: string, attribute: string, value: number = 1, max: number | null = null): boolean {
+    public async increaseDocumentAttribute(collection: string, id: string, attribute: string, value: number = 1, max: number | null = null): Promise<boolean> {
         if (this.adapter.getSharedTables() && !this.adapter.getTenant()) {
             throw new DatabaseException('Missing tenant. Tenant must be set when table sharing is enabled.');
         }
@@ -3788,13 +3786,13 @@ export class Database {
 
         const validator = new Authorization(Database.PERMISSION_UPDATE);
 
-        const document = Authorization.skip(() => this.silent(() => this.getDocument(collection, id))); // Skip ensures user does not need read permission for this
+        const document = await Authorization.skip(async () => await this.silent(async () => await this.getDocument(collection, id))); // Skip ensures user does not need read permission for this
 
         if (document.isEmpty()) {
             return false;
         }
 
-        const collectionDoc = this.silent(() => this.getCollection(collection));
+        const collectionDoc = await this.silent(async () => await this.getCollection(collection));
 
         if (collectionDoc.getId() !== Database.METADATA) {
             const documentSecurity = collectionDoc.getAttribute('documentSecurity', false);
@@ -3865,7 +3863,7 @@ export class Database {
      * @throws AuthorizationException
      * @throws DatabaseException
      */
-    public decreaseDocumentAttribute(collection: string, id: string, attribute: string, value: number = 1, min: number | null = null): boolean {
+    public async decreaseDocumentAttribute(collection: string, id: string, attribute: string, value: number = 1, min: number | null = null): Promise<boolean> {
         if (this.adapter.getSharedTables() && !this.adapter.getTenant()) {
             throw new DatabaseException('Missing tenant. Tenant must be set when table sharing is enabled.');
         }
@@ -3876,13 +3874,13 @@ export class Database {
 
         const validator = new Authorization(Database.PERMISSION_UPDATE);
 
-        const document = Authorization.skip(() => this.silent(() => this.getDocument(collection, id))); // Skip ensures user does not need read permission for this
+        const document = await Authorization.skip(async () => await this.silent(async () => await this.getDocument(collection, id))); // Skip ensures user does not need read permission for this
 
         if (document.isEmpty()) {
             return false;
         }
 
-        const collectionDoc = this.silent(() => this.getCollection(collection));
+        const collectionDoc = await this.silent(async () => await this.getCollection(collection));
 
         if (collectionDoc.getId() !== Database.METADATA) {
             const documentSecurity = collectionDoc.getAttribute('documentSecurity', false);
@@ -3953,16 +3951,16 @@ export class Database {
      * @throws RestrictedException
      * @throws StructureException
      */
-    public deleteDocument(collection: string, id: string): boolean {
+    public async deleteDocument(collection: string, id: string): Promise<boolean> {
         if (this.adapter.getSharedTables() && !this.adapter.getTenant()) {
             throw new DatabaseException('Missing tenant. Tenant must be set when table sharing is enabled.');
         }
 
-        const collectionDoc = this.silent(() => this.getCollection(collection));
+        const collectionDoc = await this.silent(async () => await this.getCollection(collection));
 
-        const deleted = this.withTransaction(() => {
-            let document = Authorization.skip(() => this.silent(
-                () => this.getDocument(collectionDoc.getId(), id, [], true)
+        const deleted = await this.withTransaction(async () => {
+            let document = await Authorization.skip(async () => await this.silent(
+                async () => await this.getDocument(collectionDoc.getId(), id, [], true)
             ));
 
             if (document.isEmpty()) {
@@ -3988,7 +3986,7 @@ export class Database {
             }
 
             if (this.resolveRelationships) {
-                document = this.silent(() => this.deleteDocumentRelationships(collectionDoc, document));
+                document = await this.silent(async () => await this.deleteDocumentRelationships(collectionDoc, document));
             }
 
             return this.adapter.deleteDocument(collectionDoc.getId(), id);
@@ -4014,7 +4012,7 @@ export class Database {
      * @throws RestrictedException
      * @throws StructureException
      */
-    private deleteDocumentRelationships(collection: Document, document: Document): Document {
+    private async deleteDocumentRelationships(collection: Document, document: Document): Promise<Document> {
         const attributes = collection.getAttribute('attributes', []);
 
         const relationships = attributes.filter(
@@ -4024,7 +4022,7 @@ export class Database {
         for (const relationship of relationships) {
             const key = relationship['key'];
             const value = document.getAttribute(key);
-            const relatedCollection = this.getCollection(relationship['options']['relatedCollection']);
+            const relatedCollection =  await this.getCollection(relationship['options']['relatedCollection']);
             const relationType = relationship['options']['relationType'];
             const twoWay = relationship['options']['twoWay'];
             const twoWayKey = relationship['options']['twoWayKey'];
@@ -4036,10 +4034,10 @@ export class Database {
 
             switch (onDelete) {
                 case Database.RELATION_MUTATE_RESTRICT:
-                    this.deleteRestrict(relatedCollection, document, value, relationType, twoWay, twoWayKey, side);
+                    await this.deleteRestrict(relatedCollection, document, value, relationType, twoWay, twoWayKey, side);
                     break;
                 case Database.RELATION_MUTATE_SET_NULL:
-                    this.deleteSetNull(collection, relatedCollection, document, value, relationType, twoWay, twoWayKey, side);
+                    await this.deleteSetNull(collection, relatedCollection, document, value, relationType, twoWay, twoWayKey, side);
                     break;
                 case Database.RELATION_MUTATE_CASCADE:
                     for (const processedRelationship of this.relationshipDeleteStack) {
@@ -4179,7 +4177,7 @@ export class Database {
      * @throws RestrictedException
      * @throws StructureException
      */
-    private deleteSetNull(
+    private async deleteSetNull(
         collection: Document,
         relatedCollection: Document,
         document: Document,
@@ -4188,7 +4186,7 @@ export class Database {
         twoWay: boolean,
         twoWayKey: string,
         side: string
-    ): void {
+    ): Promise<void> {
         switch (relationType) {
             case Database.RELATION_ONE_TO_ONE:
                 if (!twoWay && side === Database.RELATION_SIDE_PARENT) {
@@ -4276,7 +4274,7 @@ export class Database {
             case Database.RELATION_MANY_TO_MANY:
                 const junction = this.getJunctionCollection(collection, relatedCollection, side);
 
-                const junctions = this.find(junction, [
+                const junctions = await this.find(junction, [
                     Query.select(['$id']),
                     Query.equal(twoWayKey, [document.getId()]),
                     Query.limit(Number.MAX_SAFE_INTEGER)
@@ -4311,7 +4309,7 @@ export class Database {
      * @throws RestrictedException
      * @throws StructureException
      */
-    private deleteCascade(
+    private async deleteCascade(
         collection: Document,
         relatedCollection: Document,
         document: Document,
@@ -4321,7 +4319,7 @@ export class Database {
         twoWayKey: string,
         side: string,
         relationship: Document
-    ): void {
+    ): Promise<void> {
         switch (relationType) {
             case Database.RELATION_ONE_TO_ONE:
                 if (value !== null) {
@@ -4376,7 +4374,7 @@ export class Database {
             case Database.RELATION_MANY_TO_MANY:
                 const junction = this.getJunctionCollection(collection, relatedCollection, side);
 
-                const junctions = this.skipRelationships(() => this.find(junction, [
+                const junctions = await this.skipRelationships(() => this.find(junction, [
                     Query.select(['$id', key]),
                     Query.equal(twoWayKey, [document.getId()]),
                     Query.limit(Number.MAX_SAFE_INTEGER)
@@ -4411,9 +4409,9 @@ export class Database {
     *
     * @return boolean
     */
-    public purgeCachedCollection(collectionId: string): boolean {
+    public async purgeCachedCollection(collectionId: string): Promise<boolean> {
         const collectionKey = `${this.cacheName}-cache-${this.getNamespace()}:${this.adapter.getTenant()}:collection:${collectionId}`;
-        const documentKeys = this.cache.list(collectionKey);
+        const documentKeys = await this.cache.list(collectionKey);
         for (const documentKey of documentKeys) {
             this.cache.purge(documentKey);
         }
@@ -4451,12 +4449,12 @@ export class Database {
      * @throws QueryException
      * @throws TimeoutException
      */
-    public find(collection: string, queries: Query[] = []): Document[] {
+    public async find(collection: string, queries: Query[] = []): Promise<Document[]> {
         if (this.adapter.getSharedTables() && !this.adapter.getTenant()) {
             throw new DatabaseException('Missing tenant. Tenant must be set when table sharing is enabled.');
         }
 
-        const collectionDoc = this.silent(() => this.getCollection(collection));
+        const collectionDoc = await this.silent(async () => await this.getCollection(collection));
 
         if (collectionDoc.isEmpty()) {
             throw new DatabaseException('Collection not found');
@@ -4554,7 +4552,7 @@ export class Database {
             cursorDirection ?? Database.CURSOR_AFTER
         );
 
-        const results = skipAuth ? Authorization.skip(getResults) : getResults();
+        const results = skipAuth ? await Authorization.skip(getResults) : await getResults();
 
         for (let node of results) {
             if (this.resolveRelationships && (selects.length === 0 || nestedSelections.length > 0)) {
@@ -4619,12 +4617,12 @@ export class Database {
      * @return number
      * @throws DatabaseException
      */
-    public count(collection: string, queries: Query[] = [], max: number | null = null): number {
+    public async count(collection: string, queries: Query[] = [], max: number | null = null): Promise<number> {
         if (this.adapter.getSharedTables() && !this.adapter.getTenant()) {
             throw new DatabaseException('Missing tenant. Tenant must be set when table sharing is enabled.');
         }
 
-        const collectionDoc = this.silent(() => this.getCollection(collection));
+        const collectionDoc = await this.silent(async () => await this.getCollection(collection));
         const attributes = collectionDoc.getAttribute('attributes', []);
         const indexes = collectionDoc.getAttribute('indexes', []);
 
@@ -4642,7 +4640,7 @@ export class Database {
         queries = Database.convertQueries(collectionDoc, queries);
 
         const getCount = () => this.adapter.count(collectionDoc.getId(), queries, max ?? undefined);
-        const count = skipAuth ? Authorization.skip(getCount) : getCount();
+        const count = skipAuth ? await Authorization.skip(getCount) : await getCount();
 
         this.trigger(Database.EVENT_DOCUMENT_COUNT, count);
 
@@ -4662,12 +4660,12 @@ export class Database {
      * @return number
      * @throws DatabaseException
      */
-    public sum(collection: string, attribute: string, queries: Query[] = [], max: number | null = null): number {
+    public async sum(collection: string, attribute: string, queries: Query[] = [], max: number | null = null): Promise<number> {
         if (this.adapter.getSharedTables() && !this.adapter.getTenant()) {
             throw new DatabaseException('Missing tenant. Tenant must be set when table sharing is enabled.');
         }
 
-        const collectionDoc = this.silent(() => this.getCollection(collection));
+        const collectionDoc = await this.silent(async () => await this.getCollection(collection));
         const attributes = collectionDoc.getAttribute('attributes', []);
         const indexes = collectionDoc.getAttribute('indexes', []);
 
@@ -4680,7 +4678,7 @@ export class Database {
 
         queries = Database.convertQueries(collectionDoc, queries);
 
-        const sum = this.adapter.sum(collectionDoc.getId(), attribute, queries, max ?? undefined);
+        const sum = await this.adapter.sum(collectionDoc.getId(), attribute, queries, max ?? undefined);
 
         this.trigger(Database.EVENT_DOCUMENT_SUM, sum);
 
@@ -5077,7 +5075,7 @@ export class Database {
      * @return void
      * @throws DatabaseException
      */
-    private purgeRelatedDocuments(collection: Document, id: string): void {
+    private async purgeRelatedDocuments(collection: Document, id: string): Promise<void> {
         if (collection.getId() === Database.METADATA) {
             return;
         }
@@ -5091,7 +5089,7 @@ export class Database {
         }
 
         const key = `${this.cacheName}-cache-${this.getNamespace()}:map:${collection.getId()}:${id}`;
-        const cache = this.cache.load(key, Database.TTL, key);
+        const cache = await this.cache.load(key, Database.TTL, key);
         if (cache.length > 0) {
             for (const v of cache) {
                 const [collectionId, documentId] = v.split(':');

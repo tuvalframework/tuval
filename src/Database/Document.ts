@@ -34,6 +34,10 @@ export class Document extends Map<string, any> {
         return this.getAttribute('$internalId', '');
     }
 
+    public setInternalId(id: string): void {
+         this.set('$internalId', id);
+    }
+
     public getCollection(): string {
         return this.getAttribute('$collection', '');
     }
