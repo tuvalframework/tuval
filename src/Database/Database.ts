@@ -214,7 +214,7 @@ export class Database {
         '_permissions',
     ];
 
-    protected static readonly COLLECTION = {
+    protected static readonly COLLECTION = new Document({
         '$id': Database.METADATA,
         '$collection': Database.METADATA,
         'name': 'collections',
@@ -261,7 +261,7 @@ export class Database {
             }),
         ],
         'indexes': [],
-    };
+    });
 
     protected static filters: Record<string, { encode: (...value: any[]) => any, decode: (...value: any[]) => any }> = {};
 
@@ -579,9 +579,9 @@ export class Database {
         database = database ?? this.adapter.getDatabase();
         this.adapter.create(database);
 
-        const attributes = Database.COLLECTION.attributes.map(attribute => new Document(attribute));
+        const attributes = Database.COLLECTION.getAttribute('attributes').map(attribute => new Document(attribute));
 
-        this.silent(() => this.createCollection(Database.METADATA, attributes));
+        await this.silent(async () => await this.createCollection(Database.METADATA, attributes));
 
         this.trigger(Database.EVENT_DATABASE_CREATE, database);
 
@@ -595,7 +595,7 @@ export class Database {
 
         database = database ?? this.adapter.getDatabase();
 
-        return this.adapter.exists(database, collection);
+        return await this.adapter.exists(database, collection);
     }
 
     public async list(): Promise<Document[]> {
@@ -603,7 +603,7 @@ export class Database {
             throw new Error('Missing tenant. Tenant must be set when table sharing is enabled.');
         }
 
-        const databases = this.adapter.list();
+        const databases = await this.adapter.list();
 
         this.trigger(Database.EVENT_DATABASE_LIST, databases);
 
@@ -617,7 +617,7 @@ export class Database {
 
         database = database ?? this.adapter.getDatabase();
 
-        const deleted = this.adapter.delete(database);
+        const deleted = await this.adapter.delete(database);
 
         this.trigger(Database.EVENT_DATABASE_DELETE, {
             name: database,
@@ -647,7 +647,7 @@ export class Database {
             }
         }
 
-        const collection = await this.silent(() => this.getCollection(id));
+        const collection = await this.silent( async () => await this.getCollection(id));
 
         if (!collection.isEmpty() && id !== Database.METADATA) {
             throw new DuplicateException(`Collection ${id} already exists`);
@@ -674,7 +674,7 @@ export class Database {
             }
         }
 
-        this.adapter.createCollection(id, attributes, indexes);
+        await this.adapter.createCollection(id, attributes, indexes);
 
         if (id === Database.METADATA) {
             return new Document(Database.COLLECTION);
@@ -742,7 +742,7 @@ export class Database {
             .setAttribute('$permissions', permissions)
             .setAttribute('documentSecurity', documentSecurity);
 
-        const updatedCollection = this.silent(() => this.updateDocument(Database.METADATA, collection.getId(), collection));
+        const updatedCollection = await this.silent(async () => await this.updateDocument(Database.METADATA, collection.getId(), collection));
 
         this.trigger(Database.EVENT_COLLECTION_UPDATE, updatedCollection);
 
@@ -754,7 +754,7 @@ export class Database {
             throw new DatabaseException('Missing tenant. Tenant must be set when table sharing is enabled.');
         }
 
-        const collection = await this.silent(() => this.getDocument(Database.METADATA, id));
+        const collection = await this.silent(async () => await this.getDocument(Database.METADATA, id));
 
         if (
             id !== Database.METADATA &&
@@ -795,7 +795,7 @@ export class Database {
             throw new DatabaseException('Missing tenant. Tenant must be set when table sharing is enabled.');
         }
 
-        const collectionDoc = await this.silent(() => this.getCollection(collection));
+        const collectionDoc = await this.silent(async () => await this.getCollection(collection));
 
         if (collectionDoc.isEmpty()) {
             throw new DatabaseException('Collection not found');
@@ -805,7 +805,7 @@ export class Database {
             throw new DatabaseException('Collection not found');
         }
 
-        return this.adapter.getSizeOfCollection(collectionDoc.getId());
+        return await this.adapter.getSizeOfCollection(collectionDoc.getId());
     }
 
     public async deleteCollection(id: string): Promise<boolean> {
@@ -828,7 +828,7 @@ export class Database {
         );
 
         for (const relationship of relationships) {
-            this.deleteRelationship(collection.getId(), relationship.getId());
+            await this.deleteRelationship(collection.getId(), relationship.getId());
         }
 
         await this.adapter.deleteCollection(id);
@@ -875,7 +875,7 @@ export class Database {
         }
 
         // Attribute IDs are case insensitive
-        const attributes = collectionDoc.getAttribute('attributes', []);
+        const attributes: Document[] = collectionDoc.getAttribute('attributes', []);
         for (const attribute of attributes) {
             if (attribute.getId().toLowerCase() === id.toLowerCase()) {
                 throw new DuplicateException('Attribute already exists');
@@ -943,7 +943,7 @@ export class Database {
                 throw new DatabaseException(`Unknown attribute type: ${type}. Must be one of ${Database.VAR_STRING}, ${Database.VAR_INTEGER}, ${Database.VAR_FLOAT}, ${Database.VAR_BOOLEAN}, ${Database.VAR_DATETIME}, ${Database.VAR_RELATIONSHIP}`);
         }
 
-        // only execute when defaultValue is given
+        // sadece defaultValue verildiğinde çalıştır
         if (defaultValue !== null) {
             if (required) {
                 throw new DatabaseException('Cannot set a default value on a required attribute');
@@ -953,7 +953,7 @@ export class Database {
         }
 
         try {
-            const created = this.adapter.createAttribute(collectionDoc.getId(), id, type, size, signed, array);
+            const created = await this.adapter.createAttribute(collectionDoc.getId(), id, type, size, signed, array);
 
             if (!created) {
                 throw new DatabaseException('Failed to create attribute');
@@ -965,11 +965,11 @@ export class Database {
         }
 
         if (collectionDoc.getId() !== Database.METADATA) {
-            this.silent(() => this.updateDocument(Database.METADATA, collectionDoc.getId(), collectionDoc));
+            await this.silent(async () => await this.updateDocument(Database.METADATA, collectionDoc.getId(), collectionDoc));
         }
 
-        this.purgeCachedCollection(collectionDoc.getId());
-        this.purgeCachedDocument(Database.METADATA, collectionDoc.getId());
+        await this.purgeCachedCollection(collectionDoc.getId());
+        await this.purgeCachedDocument(Database.METADATA, collectionDoc.getId());
 
         this.trigger(Database.EVENT_ATTRIBUTE_CREATE, attribute);
 
@@ -1001,7 +1001,7 @@ export class Database {
      * @throws DatabaseException
      * @return void
      */
-    protected validateDefaultTypes(type: string, defaultValue: any): void {
+    protected async validateDefaultTypes(type: string, defaultValue: any): Promise<void> {
         const defaultType = typeof defaultValue;
 
         if (defaultType === 'undefined' || defaultValue === null) {
@@ -1011,7 +1011,7 @@ export class Database {
 
         if (Array.isArray(defaultValue)) {
             for (const value of defaultValue) {
-                this.validateDefaultTypes(type, value);
+                await this.validateDefaultTypes(type, value);
             }
             return;
         }
@@ -1057,14 +1057,14 @@ export class Database {
             throw new DatabaseException('Cannot update metadata indexes');
         }
 
-        const indexes = collectionDoc.getAttribute('indexes', []);
-        const indexPosition = indexes.findIndex((index: Document) => index['$id'] === id);
+        const indexes: Document[] = collectionDoc.getAttribute('indexes', []);
+        const indexPosition = indexes.findIndex((index: Document) => index.getAttribute('$id') === id);
 
         if (indexPosition === -1) {
             throw new DatabaseException('Index not found');
         }
 
-        // Execute update from callback
+        // Geri çağırma işlevinden güncellemeyi yürüt
         updateCallback(indexes[indexPosition], collectionDoc, indexPosition);
 
         // Save
@@ -1078,11 +1078,11 @@ export class Database {
     }
 
     /**
-   * Update attribute metadata. Utility method for update attribute methods.
+   * Öznitelik meta verilerini güncelle. Öznitelik güncelleme yöntemleri için yardımcı yöntem.
    *
    * @param collection
    * @param id
-   * @param updateCallback method that receives document, and returns it with changes applied
+   * @param updateCallback belgeyi alan ve değişiklikler uygulanmış olarak döndüren yöntem
    *
    * @return Document
    * @throws ConflictException
@@ -1103,20 +1103,20 @@ export class Database {
             throw new DatabaseException('Cannot update metadata attributes');
         }
 
-        const attributes = collectionDoc.getAttribute('attributes', []);
-        const index = attributes.findIndex((attribute: Document) => attribute['$id'] === id);
+        const attributes: Document[] = collectionDoc.getAttribute('attributes', []);
+        const index = attributes.findIndex((attribute: Document) => attribute.getAttribute('$id') === id);
 
         if (index === -1) {
             throw new DatabaseException('Attribute not found');
         }
 
-        // Execute update from callback
+        // Geri çağırma işlevinden güncellemeyi yürüt
         updateCallback(attributes[index], collectionDoc, index);
 
         // Save
         collectionDoc.setAttribute('attributes', attributes, Document.SET_TYPE_ASSIGN);
 
-        this.silent(() => this.updateDocument(Database.METADATA, collectionDoc.getId(), collectionDoc));
+        await this.silent(async () => await this.updateDocument(Database.METADATA, collectionDoc.getId(), collectionDoc));
 
         this.trigger(Database.EVENT_ATTRIBUTE_UPDATE, attributes[index]);
 
@@ -1124,7 +1124,7 @@ export class Database {
     }
 
     /**
-     * Update required status of attribute.
+     * Öznitelik gerekli durumunu güncelle.
      *
      * @param collection
      * @param id
@@ -1134,23 +1134,23 @@ export class Database {
      * @throws DatabaseException
      */
     public async updateAttributeRequired(collection: string, id: string, required: boolean): Promise<Document> {
-        return this.updateAttributeMeta(collection, id, (attribute: Document) => {
+        return await this.updateAttributeMeta(collection, id, (attribute: Document) => {
             attribute.setAttribute('required', required);
         });
     }
 
     /**
-    * Update format of attribute.
+    * Öznitelik formatını güncelle.
     *
     * @param collection
     * @param id
-    * @param format validation format of attribute
+    * @param format öznitelik doğrulama formatı
     *
     * @return Document
     * @throws DatabaseException
     */
     public async updateAttributeFormat(collection: string, id: string, format: string): Promise<Document> {
-        return this.updateAttributeMeta(collection, id, (attribute: Document) => {
+        return await this.updateAttributeMeta(collection, id, (attribute: Document) => {
             if (!Structure.hasFormat(format, attribute.getAttribute('type'))) {
                 throw new DatabaseException(`Format "${format}" not available for attribute type "${attribute.getAttribute('type')}"`);
             }
@@ -1160,23 +1160,23 @@ export class Database {
     }
 
     /**
-   * Update format options of attribute.
+   * Öznitelik format seçeneklerini güncelle.
    *
    * @param collection
    * @param id
-   * @param formatOptions assoc array with custom options that can be passed for the format validation
+   * @param formatOptions öznitelik doğrulama için geçirilebilen özel seçeneklerin bir ilişkisel dizi
    *
    * @return Document
    * @throws DatabaseException
    */
     public async updateAttributeFormatOptions(collection: string, id: string, formatOptions: { [key: string]: any }): Promise<Document> {
-        return this.updateAttributeMeta(collection, id, (attribute: Document) => {
+        return await this.updateAttributeMeta(collection, id, (attribute: Document) => {
             attribute.setAttribute('formatOptions', formatOptions);
         });
     }
 
     /**
-     * Update filters of attribute.
+     * Öznitelik filtrelerini güncelle.
      *
      * @param collection
      * @param id
@@ -1186,13 +1186,13 @@ export class Database {
      * @throws DatabaseException
      */
     public async updateAttributeFilters(collection: string, id: string, filters: string[]): Promise<Document> {
-        return this.updateAttributeMeta(collection, id, (attribute: Document) => {
+        return await this.updateAttributeMeta(collection, id, (attribute: Document) => {
             attribute.setAttribute('filters', filters);
         });
     }
 
     /**
-    * Update default value of attribute
+    * Öznitelik varsayılan değerini güncelle.
     *
     * @param collection
     * @param id
@@ -1202,20 +1202,21 @@ export class Database {
     * @throws DatabaseException
     */
     public async updateAttributeDefault(collection: string, id: string, defaultValue: any = null): Promise<Document> {
-        return this.updateAttributeMeta(collection, id, (attribute: Document) => {
+        return await this.updateAttributeMeta(collection, id, async (attribute: Document) => {
             if (attribute.getAttribute('required') === true) {
                 throw new DatabaseException('Cannot set a default value on a required attribute');
             }
 
-            this.validateDefaultTypes(attribute.getAttribute('type'), defaultValue);
+            await this.validateDefaultTypes(attribute.getAttribute('type'), defaultValue);
 
             attribute.setAttribute('default', defaultValue);
         });
     }
 
     /**
-         * Update Attribute. This method is for updating data that causes underlying structure to change. Check out other updateAttribute methods if you are looking for metadata adjustments.
-         * To update attribute key (ID), use renameAttribute instead.
+         * Öznitelik güncelle. Bu yöntem, alt yapıyı değiştiren verileri güncellemek için kullanılır. 
+         * Alt yapıyı değiştiren verileri güncellemek için diğer updateAttribute yöntemlerini kontrol edin.
+         * Öznitelik anahtarını (ID) güncellemek için renameAttribute kullanın.
          * @param collection
          * @param id
          * @param type
@@ -4714,9 +4715,9 @@ export class Database {
     public encode(collection: Document, document: Document): Document {
         const attributes = collection.getAttribute('attributes', []);
 
-        const internalAttributes = Database.INTERNAL_ATTRIBUTES.filter((attribute: any) => {
+        const internalAttributes = Database.INTERNAL_ATTRIBUTES.filter((attribute: Document) => {
             // We don't want to encode permissions into a JSON string
-            return attribute['$id'] !== '$permissions';
+            return attribute.getAttribute('$id') !== '$permissions';
         });
 
         const allAttributes: Document[] = [...attributes, ...internalAttributes];
