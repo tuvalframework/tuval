@@ -1,3 +1,4 @@
+
 import { Database } from '../Database';
 import { Exception as DatabaseException } from '../Exception';
 import { Role } from './Role';
@@ -5,11 +6,16 @@ import { Role } from './Role';
 export class Permission {
     private role: Role;
 
+    public static readonly PERMISSION_CREATE = 'create';
+    public static readonly PERMISSION_READ = 'read';
+    public static readonly PERMISSION_UPDATE = 'update';
+    public static readonly PERMISSION_DELETE = 'delete';
+
     private static aggregates: Record<string, string[]> = {
         'write': [
-            Database.PERMISSION_CREATE,
-            Database.PERMISSION_UPDATE,
-            Database.PERMISSION_DELETE,
+            Permission.PERMISSION_CREATE,
+            Permission.PERMISSION_UPDATE,
+            Permission.PERMISSION_DELETE,
         ]
     };
 

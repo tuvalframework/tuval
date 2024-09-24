@@ -147,8 +147,16 @@ export abstract class SQL extends Adapter {
      * @return Promise<Document[]>
      */
     public async list(): Promise<Document[]> {
-        // Implement listing logic as needed
-        return [];
+        try {
+            const [rows] = await this.getPDO().execute<RowDataPacket[]>(`
+                SELECT SCHEMA_NAME 
+                FROM INFORMATION_SCHEMA.SCHEMATA
+            `);
+
+            return rows.map(row => new Document({ name: row.SCHEMA_NAME }));
+        } catch (e: any) {
+            throw new DatabaseException('Failed to list databases: ' + e.message, e.code, e);
+        }
     }
 
     /**
@@ -537,14 +545,14 @@ export abstract class SQL extends Adapter {
 
         if (query.isNested()) {
             for (const value of query.getValues()) {
-               // await this.bindConditionValue(stmt, value);
+                // await this.bindConditionValue(stmt, value);
             }
             return;
         }
 
         if (await this.getSupportForJSONOverlaps() && query.onArray() && query.getMethod() === Query.TYPE_CONTAINS) {
             const placeholder = this.getSQLPlaceholder(query) + '_0';
-           // stmt.bindValue(placeholder, JSON.stringify(query.getValues()), 'string');
+            // stmt.bindValue(placeholder, JSON.stringify(query.getValues()), 'string');
             return;
         }
 
@@ -565,7 +573,7 @@ export abstract class SQL extends Adapter {
             })();
 
             const placeholder = this.getSQLPlaceholder(query) + '_' + key;
-           // stmt.bindValue(placeholder, processedValue, this.getPDOType(processedValue));
+            // stmt.bindValue(placeholder, processedValue, this.getPDOType(processedValue));
         });
     }
 

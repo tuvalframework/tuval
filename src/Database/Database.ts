@@ -134,7 +134,7 @@ export class Database {
     protected map: Record<string, boolean | string> = {};
 
     public static readonly INTERNAL_ATTRIBUTES = [
-        {
+       new Document ({
             '$id': '$id',
             'type': Database.VAR_STRING,
             'size': Database.LENGTH_KEY,
@@ -142,8 +142,8 @@ export class Database {
             'signed': true,
             'array': false,
             'filters': [],
-        },
-        {
+        }),
+        new Document ({
             '$id': '$internalId',
             'type': Database.VAR_STRING,
             'size': Database.LENGTH_KEY,
@@ -151,8 +151,8 @@ export class Database {
             'signed': true,
             'array': false,
             'filters': [],
-        },
-        {
+        }),
+        new Document ({
             '$id': '$collection',
             'type': Database.VAR_STRING,
             'size': Database.LENGTH_KEY,
@@ -160,8 +160,8 @@ export class Database {
             'signed': true,
             'array': false,
             'filters': [],
-        },
-        {
+        }),
+        new Document ({
             '$id': '$tenant',
             'type': Database.VAR_INTEGER,
             'size': 0,
@@ -170,8 +170,8 @@ export class Database {
             'signed': true,
             'array': false,
             'filters': [],
-        },
-        {
+        }),
+        new Document ({
             '$id': '$createdAt',
             'type': Database.VAR_DATETIME,
             'format': '',
@@ -181,8 +181,8 @@ export class Database {
             'default': null,
             'array': false,
             'filters': ['datetime']
-        },
-        {
+        }),
+        new Document ({
             '$id': '$updatedAt',
             'type': Database.VAR_DATETIME,
             'format': '',
@@ -192,8 +192,8 @@ export class Database {
             'default': null,
             'array': false,
             'filters': ['datetime']
-        },
-        {
+        }),
+        new Document ({
             '$id': '$permissions',
             'type': Database.VAR_STRING,
             'size': 1000000,
@@ -202,7 +202,7 @@ export class Database {
             'default': [],
             'array': false,
             'filters': ['json']
-        },
+        }),
     ];
 
     public static readonly INTERNAL_INDEXES = [
@@ -219,7 +219,7 @@ export class Database {
         '$collection': Database.METADATA,
         'name': 'collections',
         'attributes': [
-            {
+          new Document ({
                 '$id': 'name',
                 'key': 'name',
                 'type': Database.VAR_STRING,
@@ -228,8 +228,8 @@ export class Database {
                 'signed': true,
                 'array': false,
                 'filters': [],
-            },
-            {
+            }),
+            new Document ({
                 '$id': 'attributes',
                 'key': 'attributes',
                 'type': Database.VAR_STRING,
@@ -238,8 +238,8 @@ export class Database {
                 'signed': true,
                 'array': false,
                 'filters': ['json'],
-            },
-            {
+            }),
+            new Document ({
                 '$id': 'indexes',
                 'key': 'indexes',
                 'type': Database.VAR_STRING,
@@ -248,8 +248,8 @@ export class Database {
                 'signed': true,
                 'array': false,
                 'filters': ['json'],
-            },
-            {
+            }),
+            new Document ({
                 '$id': 'documentSecurity',
                 'key': 'documentSecurity',
                 'type': Database.VAR_BOOLEAN,
@@ -258,7 +258,7 @@ export class Database {
                 'signed': true,
                 'array': false,
                 'filters': []
-            }
+            }),
         ],
         'indexes': [],
     };
@@ -702,7 +702,7 @@ export class Database {
             }
         }
 
-        const createdCollection = this.silent(() => this.createDocument(Database.METADATA, newCollection));
+        const createdCollection = await this.silent(async () => await this.createDocument(Database.METADATA, newCollection));
 
         this.trigger(Database.EVENT_COLLECTION_CREATE, createdCollection);
 
@@ -765,7 +765,6 @@ export class Database {
         }
 
         this.trigger(Database.EVENT_COLLECTION_READ, collection);
-
         return collection;
     }
 
@@ -2268,7 +2267,9 @@ export class Database {
         }
 
         if (collection === Database.METADATA && id === Database.METADATA) {
-            return new Document(Database.COLLECTION);
+            const a = new Document(Database.COLLECTION);
+            console.log(Array.isArray(a.getAttribute('attributes', [])));
+            return a;
         }
 
         if (collection === '') {
@@ -3576,7 +3577,7 @@ export class Database {
 
                             for (const relation of value) {
                                 if (typeof relation === 'string') {
-                                    const related =  await this.skipRelationships(
+                                    const related = await this.skipRelationships(
                                         async () => await this.getDocument(relatedCollection.getId(), relation, [Query.select(['$id'])])
                                     );
 
@@ -4022,7 +4023,7 @@ export class Database {
         for (const relationship of relationships) {
             const key = relationship['key'];
             const value = document.getAttribute(key);
-            const relatedCollection =  await this.getCollection(relationship['options']['relatedCollection']);
+            const relatedCollection = await this.getCollection(relationship['options']['relatedCollection']);
             const relationType = relationship['options']['relationType'];
             const twoWay = relationship['options']['twoWay'];
             const twoWayKey = relationship['options']['twoWayKey'];
@@ -4718,13 +4719,13 @@ export class Database {
             return attribute['$id'] !== '$permissions';
         });
 
-        const allAttributes = [...attributes, ...internalAttributes];
+        const allAttributes: Document[] = [...attributes, ...internalAttributes];
 
         for (const attribute of allAttributes) {
-            const key = attribute['$id'] ?? '';
-            const array = attribute['array'] ?? false;
-            const defaultValue = attribute['default'] ?? null;
-            const filters = attribute['filters'] ?? [];
+            const key = attribute.getAttribute('$id') ?? '';
+            const array = attribute.getAttribute('array') ?? false;
+            const defaultValue = attribute.getAttribute('default') ?? null;
+            const filters = attribute.getAttribute('filters') ?? [];
             let value = document.getAttribute(key);
 
             // continue on optional param with no default

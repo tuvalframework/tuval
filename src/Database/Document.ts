@@ -1,6 +1,14 @@
 import { Database } from './Database';
 import { Exception as DatabaseException } from './Exception';
 
+(Map as any).prototype.push = (function() {
+    
+    return function(value) {
+        
+      this.set(value.key, value);
+    };
+  })();
+
 export class Document extends Map<string, any> {
     public static readonly SET_TYPE_ASSIGN = 'assign';
     public static readonly SET_TYPE_PREPEND = 'prepend';
@@ -24,6 +32,26 @@ export class Document extends Map<string, any> {
                 this.set(key, value);
             }
         }
+
+      /*   return new Proxy(this, {
+            get: (target: any, prop: string) => {
+                if (prop === 'has') {
+                    // target.getArrayCopy();
+                    const a = 'sad'
+                }
+                if (!target.__proto__.hasOwnProperty( prop) && !target.__proto__.__proto__.hasOwnProperty( prop) ) {
+                    return target.get(prop as any);
+                }
+                return target[prop];
+            },
+            set: (target, prop, value) => {
+                if (typeof prop === 'string') {
+                    target[prop] = value;
+                    return true;
+                }
+                return false;
+            }
+        }); */
     }
 
     public getId(): string {
@@ -43,7 +71,7 @@ export class Document extends Map<string, any> {
     }
 
     public getPermissions(): string[] {
-        return Array.from(new Set(this.getAttribute('$permissions', [])));
+        return JSON.parse(this.getAttribute('$permissions', []));
     }
 
     public getRead(): string[] {

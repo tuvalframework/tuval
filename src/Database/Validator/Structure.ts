@@ -135,7 +135,7 @@ export class Structure extends Validator {
 
         const keys: Record<string, any> = {};
         const structure = document.getArrayCopy();
-        const attributes = [...this.attributes, ...this.collection.getAttribute('attributes', [])];
+        const attributes = [...this.attributes, ...this.collection.getAttribute('attributes', []).map(a => a.getArrayCopy())];
 
         for (const attribute of attributes) {
             const name = attribute['$id'] ?? '';

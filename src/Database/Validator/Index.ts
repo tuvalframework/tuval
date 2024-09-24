@@ -17,7 +17,7 @@ export class Index extends Validator {
             this.attributes[key] = attribute;
         }
         for (const attribute of Database.INTERNAL_ATTRIBUTES) {
-            const key = attribute['$id'].toLowerCase();
+            const key = attribute.get('$id').toLowerCase();
             this.attributes[key] = new Document(attribute);
         }
     }
