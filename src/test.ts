@@ -13,14 +13,14 @@ const mysql = require('mysql2/promise');
 
 async function main() {
 
-    const $cache = new Cache(new Memory()); // or use any cache adapter you wish
+    const $cache = new Cache(new Memory()); // veya istediğiniz herhangi bir önbellek adaptörünü kullanın
 
     const $database = new Database(new MariaDB(
         {
-            host: 'localhost', // Replace with your host
-            user: 'root',      // Replace with your database user
-            password: 'password', // Replace with your database password
-            database: 'yourdb',  // Replace with your database name
+            host: 'localhost', // Kendi sunucunuzla değiştirin
+            user: 'root',      // Veritabanı kullanıcınızla değiştirin
+            password: 'password', // Veritabanı şifrenizle değiştirin
+            database: 'yourdb',  // Veritabanı adınızla değiştirin
             waitForConnections: true,
             connectionLimit: 10,
             queueLimit: 0
@@ -29,16 +29,16 @@ async function main() {
 
     $database.getNamespace();
 
-    // Sets namespace that prefixes all collection names
+    // Tüm koleksiyon isimlerinin önüne eklenen ad alanını ayarlar
     $database.setNamespace('my_namespace'
     );
 
-    // Sets default database
+    // Varsayılan veritabanını ayarlar
     $database.setDatabase('dbName');
 
 
-    // Creates a new database. 
-    // Uses default database as the name.
+    // Yeni bir veritabanı oluşturur.
+    // Varsayılan veritabanı adını kullanır.
     await $database.create();
 
     const users = await $database.getCollection('users');
@@ -57,27 +57,10 @@ async function main() {
         await $database.createCollection('customers');
     }
 
+    await $database.createAttribute('users', 'name', 'string', 255, false);
+   // await $database.createAttribute('users', 'email', 'string');
+   // await $database.createAttribute('users', 'password', 'string');
 
-    // Get default database
-    console.log($database.getNamespace());
-
-    const connection = await mysql.createConnection({
-        host: 'localhost', // Replace with your host
-        user: 'root',      // Replace with your database user
-        password: 'password', // Replace with your database password
-        database: 'yourdb'   // Replace with your database name
-    });
-
-    console.log('Connected to the database.');
-
-    try {
-        const [rows] = await connection.execute('SELECT 1 + 1 AS solution');
-        console.log('The solution is: ', rows[0].solution);
-    } catch (err) {
-        console.error('Error executing query:', err);
-    } finally {
-        await connection.end();
-    }
 }
 
 main()
