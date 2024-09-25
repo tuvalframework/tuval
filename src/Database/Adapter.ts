@@ -186,7 +186,7 @@ export abstract class Adapter {
     public abstract getDocumentSizeLimit(): number;
     public abstract getAttributeWidth(collection: any): number;
     public abstract getKeywords(): Array<string>;
-    protected abstract getAttributeProjection(selections: Array<string>, prefix?: string): any;
+    protected abstract getAttributeProjection(selections: Array<string>, prefix?: string): Promise<any>;
 
     protected getAttributeSelections(queries: Array<any>): Array<string> {
         const selections: Array<string> = [];

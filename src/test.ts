@@ -39,9 +39,23 @@ async function main() {
 
     // Creates a new database. 
     // Uses default database as the name.
-    $database.create();
+    await $database.create();
 
-    $database.createCollection( 'users');
+    const users = await $database.getCollection('users');
+    const teams = await $database.getCollection('teams');
+    const customers = await $database.getCollection('customers');
+
+    if (users.isEmpty()) {
+        await $database.createCollection('users');
+    }
+
+    if (teams.isEmpty()) {
+        await $database.createCollection('teams');
+    }
+
+    if (customers.isEmpty()) {
+        await $database.createCollection('customers');
+    }
 
 
     // Get default database

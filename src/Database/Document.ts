@@ -1,13 +1,13 @@
 import { Database } from './Database';
 import { Exception as DatabaseException } from './Exception';
 
-(Map as any).prototype.push = (function() {
-    
-    return function(value) {
-        
-      this.set(value.key, value);
+(Map as any).prototype.push = (function () {
+
+    return function (value) {
+
+        this.set(value.key, value);
     };
-  })();
+})();
 
 export class Document extends Map<string, any> {
     public static readonly SET_TYPE_ASSIGN = 'assign';
@@ -17,6 +17,10 @@ export class Document extends Map<string, any> {
     constructor(input: Record<string, any> = {}) {
         super();
 
+        if (input instanceof Document) {
+            input = input.getArrayCopy();
+        }
+
         if (input['$permissions'] && !Array.isArray(input['$permissions'])) {
             throw new DatabaseException('$permissions must be of type array');
         }
@@ -24,7 +28,7 @@ export class Document extends Map<string, any> {
         for (const [key, value] of Object.entries(input)) {
             if (Array.isArray(value)) {
                 if (value.some(v => v['$id'] || v['$collection'])) {
-                    this.set(key, new Document(value));
+                    this.set(key, value.map(v => new Document(v)));
                 } else {
                     this.set(key, value.map(v => (v['$id'] || v['$collection']) ? new Document(v) : v));
                 }
@@ -33,25 +37,25 @@ export class Document extends Map<string, any> {
             }
         }
 
-      /*   return new Proxy(this, {
-            get: (target: any, prop: string) => {
-                if (prop === 'has') {
-                    // target.getArrayCopy();
-                    const a = 'sad'
-                }
-                if (!target.__proto__.hasOwnProperty( prop) && !target.__proto__.__proto__.hasOwnProperty( prop) ) {
-                    return target.get(prop as any);
-                }
-                return target[prop];
-            },
-            set: (target, prop, value) => {
-                if (typeof prop === 'string') {
-                    target[prop] = value;
-                    return true;
-                }
-                return false;
-            }
-        }); */
+        /*   return new Proxy(this, {
+              get: (target: any, prop: string) => {
+                  if (prop === 'has') {
+                      // target.getArrayCopy();
+                      const a = 'sad'
+                  }
+                  if (!target.__proto__.hasOwnProperty( prop) && !target.__proto__.__proto__.hasOwnProperty( prop) ) {
+                      return target.get(prop as any);
+                  }
+                  return target[prop];
+              },
+              set: (target, prop, value) => {
+                  if (typeof prop === 'string') {
+                      target[prop] = value;
+                      return true;
+                  }
+                  return false;
+              }
+          }); */
     }
 
     public getId(): string {
@@ -63,7 +67,7 @@ export class Document extends Map<string, any> {
     }
 
     public setInternalId(id: string): void {
-         this.set('$internalId', id);
+        this.set('$internalId', id);
     }
 
     public getCollection(): string {
@@ -71,7 +75,7 @@ export class Document extends Map<string, any> {
     }
 
     public getPermissions(): string[] {
-        return JSON.parse(this.getAttribute('$permissions', []));
+        return this.getAttribute('$permissions', []);
     }
 
     public getRead(): string[] {
@@ -108,7 +112,7 @@ export class Document extends Map<string, any> {
 
     public getAttributes(): Record<string, any> {
         const attributes: Record<string, any> = {};
-        const internalKeys = Database.INTERNAL_ATTRIBUTES.map(attr => attr['$id']);
+        const internalKeys = Database.INTERNAL_ATTRIBUTES.map(attr => attr.getAttribute('$id'));
 
         for (const [attribute, value] of this.entries()) {
             if (!internalKeys.includes(attribute)) {

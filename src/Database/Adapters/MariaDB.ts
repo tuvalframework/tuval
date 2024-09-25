@@ -9,6 +9,13 @@ import { Authorization } from '../Validator/Authorization';
 import { Truncate as TruncateException } from '../Exceptions/Truncate';
 import { Timeout as TimeoutException } from '../Exceptions/Timeout';
 
+function formatDateToMySQL(date: Date): string {
+    const pad = (num: number) => (num < 10 ? '0' : '') + num;
+
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ` +
+           `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+}
+
 export class MariaDB extends SQL {
     protected pool: Pool;
     protected sharedTables: boolean;
@@ -183,6 +190,7 @@ export class MariaDB extends SQL {
         try {
             const connection = await this.pool.getConnection();
             try {
+                console.log(sql);
                 await connection.execute(sql);
 
                 // Create permissions table
@@ -837,9 +845,12 @@ export class MariaDB extends SQL {
     async createDocument(collection: string, document: Document): Promise<Document> {
         try {
             const attributes = { ...document.getAttributes() };
-            attributes['_createdAt'] = document.getCreatedAt();
-            attributes['_updatedAt'] = document.getUpdatedAt();
-            attributes['_permissions'] = JSON.stringify(document.getPermissions());
+            const createdAt = document.getCreatedAt();
+            const updatedAt = document.getUpdatedAt();
+            attributes['_createdAt'] = formatDateToMySQL(createdAt ? new Date(createdAt) : new Date());
+            attributes['_updatedAt'] = formatDateToMySQL(updatedAt ? new Date(updatedAt) : new Date());
+        
+              attributes['_permissions'] = JSON.stringify(document.getPermissions());
 
             if (this.sharedTables) {
                 attributes['_tenant'] = this.tenant;
@@ -1831,9 +1842,8 @@ export class MariaDB extends SQL {
      * @param id
      * @returns string
      */
-    protected getSQLTable(id: string): string {
-        // Implement logic to get full table name, possibly with prefix
-        return `\`${id}\``;
+    protected getSQLTable(name: string): string {
+        return `\`${this.getDatabase()}\`.\`${this.getNamespace()}_${this.filter(name)}\``;
     }
 
 

@@ -34,7 +34,8 @@ export abstract class SQL extends Adapter {
     public async startTransaction(): Promise<boolean> {
         try {
             if (this._inTransaction === 0) {
-                await this.getPDO().beginTransaction();
+                const connection = await this.getPDO().getConnection();
+                await connection.beginTransaction();
                 return true;
             }
             this._inTransaction++;
@@ -56,7 +57,8 @@ export abstract class SQL extends Adapter {
         }
 
         try {
-            await this.getPDO().commit();
+            const connection = await this.getPDO().getConnection();
+            await connection.commit();
             return true;
         } catch (e: any) {
             throw new DatabaseException('Failed to commit transaction: ' + e.message, e.code, e);
@@ -74,7 +76,8 @@ export abstract class SQL extends Adapter {
         }
 
         try {
-            await this.getPDO().rollback();
+            const connection = await this.getPDO().getConnection();
+            await connection.rollback();
 
             return true;
         } catch (e: any) {
@@ -176,7 +179,7 @@ export abstract class SQL extends Adapter {
         const forUpdateClause = forUpdate ? 'FOR UPDATE' : '';
 
         let sql = `
-            SELECT ${this.getAttributeProjection(selections)}
+            SELECT ${await this.getAttributeProjection(selections)}
             FROM ${this.getSQLTable(name)}
             WHERE _uid = ?
         `;

@@ -1946,7 +1946,7 @@ export class Database {
 
         relatedCollectionDoc.setAttribute('attributes', relatedAttributes);
 
-        await  this.silent(async () => {
+        await this.silent(async () => {
             await this.updateDocument(Database.METADATA, collectionDoc.getId(), collectionDoc);
             await this.updateDocument(Database.METADATA, relatedCollectionDoc.getId(), relatedCollectionDoc);
 
@@ -2068,7 +2068,7 @@ export class Database {
         await this.adapter.renameIndex(collectionDoc.getId(), oldId, newId);
 
         if (collectionDoc.getId() !== Database.METADATA) {
-           await this.silent(async () => await this.updateDocument(Database.METADATA, collectionDoc.getId(), collectionDoc));
+            await this.silent(async () => await this.updateDocument(Database.METADATA, collectionDoc.getId(), collectionDoc));
         }
 
         this.trigger(Database.EVENT_INDEX_RENAME, updatedIndex);
@@ -2149,7 +2149,7 @@ export class Database {
                 throw new DatabaseException('Unknown index type: ' + type + '. Must be one of ' + Database.INDEX_KEY + ', ' + Database.INDEX_UNIQUE + ', ' + Database.INDEX_FULLTEXT);
         }
 
-        const collectionAttributes = collectionDoc.getAttribute('attributes', []);
+        const collectionAttributes = collectionDoc.getAttribute<Document[]>('attributes', []);
 
         for (let i = 0; i < attributes.length; i++) {
             for (const collectionAttribute of collectionAttributes) {
@@ -2188,7 +2188,7 @@ export class Database {
         }
 
         try {
-            const created = this.adapter.createIndex(collectionDoc.getId(), id, type, attributes, lengths, orders);
+            const created = await this.adapter.createIndex(collectionDoc.getId(), id, type, attributes, lengths, orders);
 
             if (!created) {
                 throw new DatabaseException('Failed to create index');
@@ -2200,7 +2200,7 @@ export class Database {
         }
 
         if (collectionDoc.getId() !== Database.METADATA) {
-            this.silent(() => this.updateDocument(Database.METADATA, collectionDoc.getId(), collectionDoc));
+            await this.silent(async () => await this.updateDocument(Database.METADATA, collectionDoc.getId(), collectionDoc));
         }
 
         this.trigger(Database.EVENT_INDEX_CREATE, index);
@@ -2226,11 +2226,11 @@ export class Database {
         }
 
         const collectionDoc = await this.silent(async () => await this.getCollection(collection));
-        const indexes = collectionDoc.getAttribute('indexes', []);
+        const indexes = collectionDoc.getAttribute<Document[]>('indexes', []);
 
         let indexDeleted: Document | null = null;
         for (let i = 0; i < indexes.length; i++) {
-            if (indexes[i]['$id'] === id) {
+            if (indexes[i].getAttribute('$id') === id) {
                 indexDeleted = indexes[i];
                 indexes.splice(i, 1);
                 break;
@@ -2240,10 +2240,10 @@ export class Database {
         collectionDoc.setAttribute('indexes', indexes);
 
         if (collectionDoc.getId() !== Database.METADATA) {
-            this.silent(async () => await this.updateDocument(Database.METADATA, collectionDoc.getId(), collectionDoc));
+            await this.silent(async () => await this.updateDocument(Database.METADATA, collectionDoc.getId(), collectionDoc));
         }
 
-        const deleted = this.adapter.deleteIndex(collectionDoc.getId(), id);
+        const deleted = await this.adapter.deleteIndex(collectionDoc.getId(), id);
 
         this.trigger(Database.EVENT_INDEX_DELETE, indexDeleted);
 
@@ -2287,7 +2287,7 @@ export class Database {
             throw new DatabaseException('Collection not found');
         }
 
-        const attributes = collectionDoc.getAttribute('attributes', []);
+        const attributes = collectionDoc.getAttribute<Document[]>('attributes', []);
 
         if (this.validate) {
             const validator = new DocumentValidator(attributes);
@@ -2296,7 +2296,7 @@ export class Database {
             }
         }
 
-        const relationships = collectionDoc.getAttribute('attributes', []).filter(
+        const relationships = collectionDoc.getAttribute<Document[]>('attributes', []).filter(
             (attribute: Document) => attribute.getAttribute('type') === Database.VAR_RELATIONSHIP
         );
 
@@ -2348,7 +2348,7 @@ export class Database {
             documentCacheHash += `:${md5(selections.join(''))}`;
         }
 
-        const cache = this.cache.load(documentCacheKey, Database.TTL, documentCacheHash);
+        const cache = await this.cache.load(documentCacheKey, Database.TTL, documentCacheHash);
         if (cache) {
             const document = new Document(cache);
 
@@ -2388,7 +2388,7 @@ export class Database {
         this.map = {};
 
         if (this.resolveRelationships && (selects.length === 0 || nestedSelections.length > 0)) {
-            castedDocument = await this.silent(() => this.populateDocumentRelationships(collectionDoc, castedDocument, nestedSelections));
+            castedDocument = await this.silent(async () => await this.populateDocumentRelationships(collectionDoc, castedDocument, nestedSelections));
         }
 
         const hasTwoWayRelationship = relationships.some(
@@ -2401,13 +2401,13 @@ export class Database {
             let cache = await this.cache.load(ck, Database.TTL, ck) || [];
             if (!cache.includes(v)) {
                 cache.push(v);
-                this.cache.save(ck, cache, ck);
+                await this.cache.save(ck, cache, ck);
             }
         }
 
         if (!hasTwoWayRelationship && relationships.length === 0) {
-            this.cache.save(documentCacheKey, castedDocument.getArrayCopy(), documentCacheHash);
-            this.cache.save(collectionCacheKey, 'empty', documentCacheKey);
+            await this.cache.save(documentCacheKey, castedDocument.getArrayCopy(), documentCacheHash);
+            await this.cache.save(collectionCacheKey, 'empty', documentCacheKey);
         }
 
         for (const query of queries) {
@@ -2436,18 +2436,18 @@ export class Database {
      * @throws DatabaseException
      */
     private async populateDocumentRelationships(collection: Document, document: Document, queries: Query[] = []): Promise<Document> {
-        const attributes = collection.getAttribute('attributes', []);
+        const attributes = collection.getAttribute<Document[]>('attributes', []);
 
-        const relationships = attributes.filter((attribute: any) => attribute['type'] === Database.VAR_RELATIONSHIP);
+        const relationships = attributes.filter((attribute: Document) => attribute.getAttribute('type') === Database.VAR_RELATIONSHIP);
 
         for (const relationship of relationships) {
-            const key = relationship['key'];
+            const key = relationship.getAttribute('key');
             const value = document.getAttribute(key);
-            const relatedCollection = await this.getCollection(relationship['options']['relatedCollection']);
-            const relationType = relationship['options']['relationType'];
-            const twoWay = relationship['options']['twoWay'];
-            const twoWayKey = relationship['options']['twoWayKey'];
-            const side = relationship['options']['side'];
+            const relatedCollection = await this.getCollection(relationship.getAttribute('options')['relatedCollection']);
+            const relationType = relationship.getAttribute('options')['relationType'];
+            const twoWay = relationship.getAttribute('options')['twoWay'];
+            const twoWayKey = relationship.getAttribute('options')['twoWayKey'];
+            const side = relationship.getAttribute('options')['side'];
 
             if (value) {
                 let k = `${relatedCollection.getId()}:${value}=>${collection.getId()}:${document.getId()}`;
@@ -2462,11 +2462,11 @@ export class Database {
 
             let skipFetch = false;
             for (const fetchedRelationship of this.relationshipFetchStack) {
-                const existingKey = fetchedRelationship['key'];
-                const existingCollection = fetchedRelationship['collection'];
-                const existingRelatedCollection = fetchedRelationship['options']['relatedCollection'];
-                const existingTwoWayKey = fetchedRelationship['options']['twoWayKey'];
-                const existingSide = fetchedRelationship['options']['side'];
+                const existingKey = fetchedRelationship.getAttribute('key');
+                const existingCollection = fetchedRelationship.getAttribute('collection');
+                const existingRelatedCollection = fetchedRelationship.getAttribute('options')['relatedCollection'];
+                const existingTwoWayKey = fetchedRelationship.getAttribute('options')['twoWayKey'];
+                const existingSide = fetchedRelationship.getAttribute('options')['side'];
 
                 const reflexive = fetchedRelationship === relationship;
 
@@ -2510,7 +2510,7 @@ export class Database {
                     this.relationshipFetchDepth++;
                     this.relationshipFetchStack.push(relationship);
 
-                    let related = this.getDocument(relatedCollection.getId(), value, queries);
+                    let related = await this.getDocument(relatedCollection.getId(), value, queries);
 
                     this.relationshipFetchDepth--;
                     this.relationshipFetchStack.pop();
@@ -2527,7 +2527,7 @@ export class Database {
                             this.relationshipFetchDepth++;
                             this.relationshipFetchStack.push(relationship);
 
-                            const related = this.getDocument(relatedCollection.getId(), value, queries);
+                            const related = await this.getDocument(relatedCollection.getId(), value, queries);
 
                             this.relationshipFetchDepth--;
                             this.relationshipFetchStack.pop();
@@ -2572,7 +2572,7 @@ export class Database {
                         this.relationshipFetchDepth++;
                         this.relationshipFetchStack.push(relationship);
 
-                        const related = this.getDocument(relatedCollection.getId(), value, queries);
+                        const related = await this.getDocument(relatedCollection.getId(), value, queries);
 
                         this.relationshipFetchDepth--;
                         this.relationshipFetchStack.pop();
@@ -2622,14 +2622,14 @@ export class Database {
 
                     const junction = this.getJunctionCollection(collection, relatedCollection, side);
 
-                    const junctions = await this.skipRelationships(() => this.find(junction, [
+                    const junctions = await this.skipRelationships(async () => await this.find(junction, [
                         Query.equal(twoWayKey, [document.getId()]),
                         Query.limit(Number.MAX_SAFE_INTEGER)
                     ]));
 
                     const _related: any[] = [];
                     for (const junction of junctions) {
-                        _related.push(this.getDocument(
+                        _related.push(await this.getDocument(
                             relatedCollection.getId(),
                             junction.getAttribute(key),
                             queries
@@ -2648,17 +2648,16 @@ export class Database {
     }
 
     /**
-         * Create Document
-         *
-         * @param collection
-         * @param document
-         *
-         * @return Document
-         *
-         * @throws AuthorizationException
-         * @throws DatabaseException
-         * @throws StructureException
-         */
+    * Create Document
+    *
+    * @param collection
+    * @param document
+    * @return Document
+    *
+    * @throws AuthorizationException
+    * @throws DatabaseException
+    * @throws StructureException
+    */
     public async createDocument(collection: string, document: Document): Promise<Document> {
         if (this.adapter.getSharedTables() && !this.adapter.getTenant()) {
             throw new DatabaseException('Missing tenant. Tenant must be set when table sharing is enabled.');
@@ -2707,7 +2706,7 @@ export class Database {
                 document = await this.silent(async () => await this.createDocumentRelationships(collectionDoc, document));
             }
 
-            return this.adapter.createDocument(collectionDoc.getId(), document);
+            return await this.adapter.createDocument(collectionDoc.getId(), document);
         });
 
         if (this.resolveRelationships) {
@@ -2770,7 +2769,7 @@ export class Database {
         }
 
         documents = await this.withTransaction(async () => {
-            return this.adapter.createDocuments(collectionDoc.getId(), documents, batchSize);
+            return await this.adapter.createDocuments(collectionDoc.getId(), documents, batchSize);
         });
 
         for (let i = 0; i < documents.length; i++) {
@@ -2795,22 +2794,22 @@ export class Database {
      * @throws DatabaseException
      */
     private async createDocumentRelationships(collection: Document, document: Document): Promise<Document> {
-        const attributes = collection.getAttribute('attributes', []);
+        const attributes = collection.getAttribute<Document[]>('attributes', []);
 
         const relationships = attributes.filter(
-            (attribute: any) => attribute['type'] === Database.VAR_RELATIONSHIP
+            (attribute: Document) => attribute.getAttribute('type') === Database.VAR_RELATIONSHIP
         );
 
         const stackCount = this.relationshipWriteStack.length;
 
         for (const relationship of relationships) {
-            const key = relationship['key'];
+            const key = relationship.getAttribute('key');
             const value = document.getAttribute(key);
-            const relatedCollection = await this.getCollection(relationship['options']['relatedCollection']);
-            const relationType = relationship['options']['relationType'];
-            const twoWay = relationship['options']['twoWay'];
-            const twoWayKey = relationship['options']['twoWayKey'];
-            const side = relationship['options']['side'];
+            const relatedCollection = await this.getCollection(relationship.getAttribute('options')['relatedCollection']);
+            const relationType = relationship.getAttribute('options')['relationType'];
+            const twoWay = relationship.getAttribute('options')['twoWay'];
+            const twoWayKey = relationship.getAttribute('options')['twoWayKey'];
+            const side = relationship.getAttribute('options')['side'];
 
             if (stackCount >= Database.RELATION_MAX_DEPTH - 1 && this.relationshipWriteStack[stackCount - 1] !== relatedCollection.getId()) {
                 document.removeAttribute(key);
@@ -2833,7 +2832,7 @@ export class Database {
 
                             for (const related of value) {
                                 if (related instanceof Document) {
-                                    this.relateDocuments(
+                                    await this.relateDocuments(
                                         collection,
                                         relatedCollection,
                                         key,
@@ -2845,7 +2844,7 @@ export class Database {
                                         side,
                                     );
                                 } else if (typeof related === 'string') {
-                                    this.relateDocumentsById(
+                                    await this.relateDocumentsById(
                                         collection,
                                         relatedCollection,
                                         key,
@@ -2874,7 +2873,7 @@ export class Database {
                                 throw new RelationshipException('Invalid relationship value. Must be either an array of documents or document IDs, document given.');
                             }
 
-                            const relatedId = this.relateDocuments(
+                            const relatedId = await this.relateDocuments(
                                 collection,
                                 relatedCollection,
                                 key,
@@ -2904,7 +2903,7 @@ export class Database {
                             throw new RelationshipException('Invalid relationship value. Must be either an array of documents or document IDs, document ID given.');
                         }
 
-                        this.relateDocumentsById(
+                        await this.relateDocumentsById(
                             collection,
                             relatedCollection,
                             key,
@@ -3000,7 +2999,7 @@ export class Database {
 
             related = await this.createDocument(relatedCollection.getId(), relation);
         } else if (related.getAttributes() !== relation.getAttributes()) {
-            // If the related document exists and the data is not the same, update it
+            // İlişkili belge varsa ve veriler aynı değilse, güncelle
             for (const [attribute, value] of Object.entries(relation.getAttributes())) {
                 related.setAttribute(attribute, value);
             }
@@ -3053,7 +3052,7 @@ export class Database {
         twoWayKey: string,
         side: string,
     ): Promise<void> {
-        // Get the related document, will be empty on permissions failure
+        // İlgili belgeyi al, izin hatası durumunda boş olacak
         const related = await this.skipRelationships(async () => await this.getDocument(relatedCollection.getId(), relationId));
 
         if (related.isEmpty()) {
@@ -3064,19 +3063,19 @@ export class Database {
             case Database.RELATION_ONE_TO_ONE:
                 if (twoWay) {
                     related.setAttribute(twoWayKey, documentId);
-                    this.skipRelationships(() => this.updateDocument(relatedCollection.getId(), relationId, related));
+                    await this.skipRelationships(async () => await this.updateDocument(relatedCollection.getId(), relationId, related));
                 }
                 break;
             case Database.RELATION_ONE_TO_MANY:
                 if (side === Database.RELATION_SIDE_PARENT) {
                     related.setAttribute(twoWayKey, documentId);
-                    this.skipRelationships(() => this.updateDocument(relatedCollection.getId(), relationId, related));
+                    await this.skipRelationships(async () => await this.updateDocument(relatedCollection.getId(), relationId, related));
                 }
                 break;
             case Database.RELATION_MANY_TO_ONE:
                 if (side === Database.RELATION_SIDE_CHILD) {
                     related.setAttribute(twoWayKey, documentId);
-                    this.skipRelationships(() => this.updateDocument(relatedCollection.getId(), relationId, related));
+                    await this.skipRelationships(async () => await this.updateDocument(relatedCollection.getId(), relationId, related));
                 }
                 break;
             case Database.RELATION_MANY_TO_MANY:
@@ -3084,7 +3083,7 @@ export class Database {
 
                 const junction = this.getJunctionCollection(collection, relatedCollection, side);
 
-                this.skipRelationships(() => this.createDocument(junction, new Document({
+                await this.skipRelationships(async () => await this.createDocument(junction, new Document({
                     [key]: related.getId(),
                     [twoWayKey]: documentId,
                     '$permissions': [
@@ -3123,22 +3122,23 @@ export class Database {
 
         document = await this.withTransaction(async () => {
             const time = DateTime.now();
-            const old = await Authorization.skip(() => this.silent(
-                () => this.getDocument(collectionDoc.getId(), id, [], true)
-            ));
+            const old = await Authorization.skip(
+                async () => await this.silent(
+                    async () => await this.getDocument(collectionDoc.getId(), id, [], true)
+                ));
 
             document = new Document({ ...old.getArrayCopy(), ...document.getArrayCopy() });
             document.setAttribute('$collection', old.getAttribute('$collection')); // Make sure user doesn't switch collection ID
 
-            document['$collection'] = old.getAttribute('$collection');   // Make sure user doesn't switch collection ID
+            //document.setAttribute('$collection', old.getAttribute('$collection'));   // Make sure user doesn't switch collection ID
             if (this.adapter.getSharedTables()) {
-                document['$tenant'] = old.getAttribute('$tenant');           // Make sure user doesn't switch tenant
+                document.setAttribute('$tenant' , old.getAttribute('$tenant'));           // Make sure user doesn't switch tenant
             }
-            document['$createdAt'] = old.getCreatedAt();                 // Make sure user doesn't switch createdAt
-            document = new Document(document);
+            document.setAttribute('$createdAt', old.getCreatedAt());                 // Make sure user doesn't switch createdAt
+            document = new Document(document.getArrayCopy());
 
-            const relationships = collectionDoc.getAttribute('attributes', []).filter(
-                (attribute: any) => attribute['type'] === Database.VAR_RELATIONSHIP
+            const relationships = collectionDoc.getAttribute<Document[]>('attributes', []).filter(
+                (attribute: Document) => attribute.getAttribute('type') === Database.VAR_RELATIONSHIP
             );
 
             const updateValidator = new Authorization(Database.PERMISSION_UPDATE);
@@ -3150,11 +3150,11 @@ export class Database {
 
                 const relationshipMap: { [key: string]: any } = {};
                 for (const relationship of relationships) {
-                    relationshipMap[relationship['key']] = relationship;
+                    relationshipMap[relationship.getAttribute('key')] = relationship;
                 }
 
                 // Compare if the document has any changes
-                for (const [key, value] of Object.entries(document)) {
+                for (const [key, value] of Object.entries(document.getArrayCopy())) {
                     // Skip the nested documents as they will be checked later in recursions.
                     if (relationshipMap[key]) {
                         // No need to compare nested documents more than max depth.
