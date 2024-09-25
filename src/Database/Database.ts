@@ -4848,12 +4848,12 @@ export class Database {
             return document;
         }
 
-        const attributes = collection.getAttribute('attributes', []);
+        const attributes = collection.getAttribute<Document[]>('attributes', []);
 
         for (const attribute of attributes) {
-            const key = attribute['$id'] ?? '';
-            const type = attribute['type'] ?? '';
-            const array = attribute['array'] ?? false;
+            const key = attribute.getAttribute('$id') ?? '';
+            const type = attribute.getAttribute('type') ?? '';
+            const array = attribute.getAttribute('array') ?? false;
             let value = document.getAttribute(key, null);
             if (value === null) {
                 continue;
