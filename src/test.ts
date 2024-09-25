@@ -3,6 +3,7 @@ import { Memory } from "./Cache/Adapters/Memory";
 import { Cache } from "./Cache/Cache";
 import { MariaDB } from "./Database/Adapters/MariaDB";
 import { Database } from "./Database/Database";
+import { Document } from "./Database/Document";
 
 
 // ExpressApp.start(80, '0.0.0.0');
@@ -50,14 +51,25 @@ async function main() {
     }
 
     if (teams.isEmpty()) {
-        await $database.createCollection('teams');
+        await $database.createCollection('teams', [
+            new Document({
+                '$id': 'ADI',
+                'key': 'ADI',
+                'type': Database.VAR_STRING,
+                'size': 256,
+                'required': true,
+                'signed': true,
+                'array': false,
+                'filters': [],
+            }),
+        ]);
     }
 
     if (customers.isEmpty()) {
         await $database.createCollection('customers');
     }
 
-    await $database.createAttribute('users', 'name', 'string', 255, false);
+  //  await $database.createAttribute('users', 'name', 'string', 255, false);
    // await $database.createAttribute('users', 'email', 'string');
    // await $database.createAttribute('users', 'password', 'string');
 

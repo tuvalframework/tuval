@@ -301,7 +301,10 @@ export class Database {
             (value: any) => {
                 value = (value instanceof Document) ? value.getArrayCopy() : value;
 
-                if (!Array.isArray(value) && typeof value !== 'object') {
+                if (Array.isArray(value) && value.length > 0 && value[0] instanceof Document) {
+                    return JSON.stringify(value.map(item => item.getArrayCopy()));
+                }
+                else if (!Array.isArray(value) && typeof value !== 'object') {
                     return value;
                 }
 
