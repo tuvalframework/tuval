@@ -1,6 +1,7 @@
 import { Database } from './Database';
 import { Exception as DatabaseException } from './Exception';
 
+// Map sinifina ufak bir katki.
 (Map as any).prototype.push = (function () {
 
     return function (value) {
@@ -8,6 +9,12 @@ import { Exception as DatabaseException } from './Exception';
         this.set(value.key, value);
     };
 })();
+
+/**
+ * Document sınıfı, veritabanı belgelerini temsil eden ve Map sınıfını genişleten bir sınıftır.
+ * Bu sınıf, veritabanı belgeleriyle ilgili çeşitli işlemleri gerçekleştirmek için bir dizi 
+ * yardımcı yöntem sağlar.
+ */
 
 export class Document extends Map<string, any> {
     public static readonly SET_TYPE_ASSIGN = 'assign';
@@ -162,6 +169,14 @@ export class Document extends Map<string, any> {
         return this;
     }
 
+    /**
+     * Belirtilen anahtar ve değeri kullanarak bir öğe bulur.
+     *
+     * @param key Aranacak anahtar
+     * @param find Aranacak değer
+     * @param subject Aramanın yapılacağı konu (varsayılan: '')
+     * @return Bulunan öğe veya false
+     */
     public find(key: string, find: any, subject: string = ''): any {
         const target = this.get(subject) ?? this;
 
@@ -177,6 +192,15 @@ export class Document extends Map<string, any> {
         return target[key] === find ? target : false;
     }
 
+    /**
+     * Belirtilen anahtar ve değeri kullanarak bir öğeyi bulur ve değiştirir.
+     *
+     * @param key Aranacak anahtar
+     * @param find Aranacak değer
+     * @param replace Değiştirilecek değer
+     * @param subject Aramanın yapılacağı konu (varsayılan: '')
+     * @return Değiştirilen öğe bulunduysa true, bulunamadıysa false
+     */
     public findAndReplace(key: string, find: any, replace: any, subject: string = ''): boolean {
         const target = this.get(subject) ?? this;
 
@@ -198,6 +222,14 @@ export class Document extends Map<string, any> {
         return false;
     }
 
+    /**
+     * Belirtilen anahtar ve değeri kullanarak bir öğeyi bulur ve kaldırır.
+     *
+     * @param key Aranacak anahtar
+     * @param find Aranacak değer
+     * @param subject Aramanın yapılacağı konu (varsayılan: '')
+     * @return Kaldırılan öğe bulunduysa true, bulunamadıysa false
+     */
     public findAndRemove(key: string, find: any, subject: string = ''): boolean {
         const target = this.get(subject) ?? this;
 
@@ -227,6 +259,13 @@ export class Document extends Map<string, any> {
         return this.has(key);
     }
 
+    /**
+     * Belirtilen izin verilen ve izin verilmeyen anahtarlar listesine göre bir kopya oluşturur.
+     *
+     * @param allow İzin verilen anahtarlar listesi
+     * @param disallow İzin verilmeyen anahtarlar listesi
+     * @return Kopyalanan öğelerin bir kaydı
+     */
     public getArrayCopy(allow: string[] = [], disallow: string[] = []): Record<string, any> {
         const array = Array.from(this.entries());
         const output: Record<string, any> = {};

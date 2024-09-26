@@ -28,6 +28,16 @@ export class MariaDB extends SQL {
         this.tenant = tenant;
     }
 
+    async  checkPoolStatus() {
+        const poolStatus = {
+            totalConnections: (this as any).pool.pool._allConnections.length,
+            freeConnections: (this as any).pool.pool._freeConnections.length,
+            waitingConnections: (this as any).pool.pool._connectionQueue.length
+        };
+    
+        console.log('Pool Status:', poolStatus);
+    }
+
     /**
      * Create Database
      *
@@ -190,7 +200,6 @@ export class MariaDB extends SQL {
         try {
             const connection = await this.pool.getConnection();
             try {
-                console.log(sql);
                 await connection.execute(sql);
 
                 // Create permissions table
@@ -885,8 +894,11 @@ export class MariaDB extends SQL {
 
             sql = this.trigger(Database.EVENT_DOCUMENT_CREATE, sql);
 
+            console.log('connection istendi')
             const connection = await this.pool.getConnection();
+            console.log('connection alindi')
             try {
+               
                 await connection.execute(sql, values);
 
                 // Handle permissions
@@ -921,7 +933,10 @@ export class MariaDB extends SQL {
                 await connection.execute(`DELETE FROM ${this.getSQLTable(name + '_perms')} WHERE _document = ?;`, [document.getId()]);
                 throw error;
             } finally {
+                console.log('connection release edildi')
+               console.log(await this.checkPoolStatus())
                 connection.release();
+                this.pool.releaseConnection(connection);
             }
         } catch (error: any) {
             if (error.code === 'ER_DUP_ENTRY') {

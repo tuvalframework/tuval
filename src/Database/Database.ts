@@ -2272,7 +2272,6 @@ export class Database {
 
         if (collection === Database.METADATA && id === Database.METADATA) {
             const a = new Document(Database.COLLECTION);
-            console.log(Array.isArray(a.getAttribute('attributes', [])));
             return a;
         }
 
@@ -4794,12 +4793,12 @@ export class Database {
             }
         }
 
-        const allAttributes = [...attributes, ...this.getInternalAttributes()];
+        const allAttributes: Document[] = [...attributes, ...this.getInternalAttributes()];
 
         for (const attribute of allAttributes) {
-            const key = attribute['$id'] ?? '';
-            const array = attribute['array'] ?? false;
-            const filters = attribute['filters'] ?? [];
+            const key = attribute.getAttribute('$id') ?? '';
+            const array = attribute.getAttribute('array') ?? false;
+            const filters = attribute.getAttribute('filters') ?? [];
             let value = document.getAttribute(key);
 
             if (value === null) {

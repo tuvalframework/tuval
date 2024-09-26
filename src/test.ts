@@ -4,6 +4,7 @@ import { Cache } from "./Cache/Cache";
 import { MariaDB } from "./Database/Adapters/MariaDB";
 import { Database } from "./Database/Database";
 import { Document } from "./Database/Document";
+import { ID } from "./Database/Helpers/ID";
 
 
 // ExpressApp.start(80, '0.0.0.0');
@@ -14,6 +15,8 @@ const mysql = require('mysql2/promise');
 
 async function main() {
 
+
+    console.log(ID.unique(124))
     const $cache = new Cache(new Memory()); // veya istediğiniz herhangi bir önbellek adaptörünü kullanın
 
     const $database = new Database(new MariaDB(
@@ -42,8 +45,9 @@ async function main() {
     // Varsayılan veritabanı adını kullanır.
     await $database.create();
 
-    const users = await $database.getCollection('users');
     const teams = await $database.getCollection('teams');
+    const users = await $database.getCollection('users');
+
     const customers = await $database.getCollection('customers');
 
     if (users.isEmpty()) {
@@ -69,9 +73,53 @@ async function main() {
         await $database.createCollection('customers');
     }
 
-  //  await $database.createAttribute('users', 'name', 'string', 255, false);
-   // await $database.createAttribute('users', 'email', 'string');
-   // await $database.createAttribute('users', 'password', 'string');
+    for (let i = 0; i < 120; i++) {
+
+        try {
+            const document = new Document({
+
+            '$id': ID.unique(),
+            'ADI': i + 'Captain Marvel',
+
+        });
+
+        await $database.createDocument(
+            'teams',
+                document
+            );
+
+            console.log('created')
+        } catch (error) {
+            console.log(error)
+        }
+    }
+
+
+    try {
+        const document = new Document({
+
+        '$id': ID.unique(),
+        'ADI':  'Captain Marvel',
+
+    });
+
+    await $database.createDocument(
+        'teams',
+            document
+        );
+
+        console.log('created')
+    } catch (error) {
+        console.log(error)
+    }
+
+    console.log('done')
+
+
+
+    //  await $database.createAttribute('users', 'name', 'string', 255, false);
+    // await $database.createAttribute('users', 'email', 'string');
+    // await $database.createAttribute('users', 'password', 'string');
 
 }
 
